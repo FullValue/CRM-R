@@ -77,7 +77,7 @@ export default async function VueEnsemble({ searchParams }: { searchParams: Prom
     <div className="space-y-8">
       <EntetePage
         titre="Vue d’ensemble"
-        description="Suivez vos activités et accédez aux opérations du quotidien."
+        description={`Bonjour ${u.nom.split(" ")[0]}. Dates de référence : date de vente pour les ventes, date de rattachement pour les dépenses.`}
         actions={action && (
           <Button asChild><Link href={action.href}>{u.espaces.includes("pm") && <PlusIcon />}{action.libelle}</Link></Button>
         )}
@@ -120,8 +120,8 @@ export default async function VueEnsemble({ searchParams }: { searchParams: Prom
       </div>
       {sansSource.length > 0 && (
         <p className="-mt-5 text-xs text-muted-foreground">
-          {pm ? `Chiffre d’affaires partiel, montants ${reglages["vente.base_montants"]}.` : "Chiffre d’affaires indisponible pour cette sélection."}{" "}
-          Source de ventes en attente pour {sansSource.map((e) => ESPACES[e].nom).join(" et ")}.
+          {pm ? `Total partiel : le chiffre d’affaires couvre la Parfumerie Mobile (terrain, WhatsApp et boutique saisis dans le CRM), montants ${reglages["vente.base_montants"]}.` : "Chiffre d’affaires indisponible pour cette sélection."}{" "}
+          Aucune source de ventes validée pour {sansSource.map((e) => ESPACES[e].nom).join(" et ")} (décision D08 : import ou rapprochement des commandes Shopify).
         </p>
       )}
       {syncKO > 0 && (

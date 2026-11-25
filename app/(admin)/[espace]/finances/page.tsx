@@ -61,7 +61,7 @@ export default async function Finances({ params, searchParams }: { params: Promi
     <div className="space-y-8">
       <EntetePage
         titre="Vue financière"
-        description="Suivez les dépenses enregistrées et leur répartition. La période s’applique à la date de rattachement."
+        description="Suivez les dépenses enregistrées et leur répartition. La période s’applique à la date de rattachement. Les coûts fixes paramétrés sont des modèles : ils ne s’ajoutent jamais aux totaux."
         actions={<Button asChild><Link href={lien({})}>Voir les dépenses <ArrowUpRightIcon /></Link></Button>}
       />
       <BarreFiltres periode />

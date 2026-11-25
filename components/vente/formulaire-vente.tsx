@@ -483,7 +483,7 @@ export function FormulaireVente({
         </div>
       </FieldGroup>
 
-      <Card className="sticky top-24 hidden lg:flex">
+      <Card className="lg:sticky lg:top-24">
         <CardHeader>
           <CardTitle>Récapitulatif</CardTitle>
           <CardDescription>Vérifiez avant de confirmer · montants {donnees.base}</CardDescription>

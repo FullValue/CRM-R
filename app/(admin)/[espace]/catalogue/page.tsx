@@ -43,7 +43,7 @@ export default async function PageCatalogue({ params, searchParams }: { params: 
     <div className="space-y-6">
       <EntetePage
         titre="Catalogue"
-        description="Consultez les formats, les prix, le stock et les liens Shopify. Ouvrez une référence pour la modifier."
+        description="Consultez les formats, les prix, le stock et les liens Shopify. Ouvrez une référence pour la modifier. L’archivage retire un article de la saisie et conserve son historique."
         actions={<NouvelleReference espace={espace} prefixe={PREFIXES[espace] ?? "REF"} />}
       />
       <BarreFiltres
