@@ -1,6 +1,23 @@
 import { cache } from "react";
 import { redirect, notFound } from "next/navigation";
 import { lireSession } from "./session";
+import { prisma } from "@/lib/db";
+
+/**
+ * Accès sans connexion, provisoire : avec CRM_SANS_CONNEXION=1, une visite sans
+ * session ouvre le compte de l'administrateur désigné. Retirer la variable
+ * rétablit l'écran de connexion, sans autre changement.
+ */
+export const SANS_CONNEXION = process.env.CRM_SANS_CONNEXION === "1";
+
+async function utilisateurParDefaut() {
+  if (!SANS_CONNEXION) return null;
+  return prisma.utilisateur.findFirst({
+    where: { actif: true, role: "ADMIN" },
+    include: { habilitations: true },
+    orderBy: [{ gestionnaire: "desc" }, { createdAt: "asc" }],
+  });
+}
 import { estEspace, type EspaceId, type Role } from "@/lib/domaine";
 
 export type UtilisateurCourant = {
@@ -16,8 +33,8 @@ export type UtilisateurCourant = {
 /** Utilisateur de la requête, ou null (mémorisé pour la durée du rendu). */
 export const utilisateurCourant = cache(async (): Promise<UtilisateurCourant | null> => {
   const s = await lireSession();
-  if (!s) return null;
-  const u = s.utilisateur;
+  const u = s?.utilisateur ?? (await utilisateurParDefaut());
+  if (!u) return null;
   return {
     id: u.id,
     nom: u.nom,

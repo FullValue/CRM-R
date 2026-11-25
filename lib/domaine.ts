@@ -10,7 +10,7 @@ export type EspaceId = keyof typeof ESPACES;
 export const LISTE_ESPACES = Object.keys(ESPACES) as EspaceId[];
 
 export function estEspace(x: string): x is EspaceId {
-  return x in ESPACES;
+  return Object.hasOwn(ESPACES, x);
 }
 
 export type Role = "ADMIN" | "VENDEUR";

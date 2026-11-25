@@ -1,22 +1,9 @@
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { InfoIcon } from "lucide-react";
+import { ArrowUpRightIcon, InfoIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/**
- * Carte d'indicateur. `valeur` null → « Données indisponibles » (PIL-01).
- * `definition` affiche la règle de calcul au survol.
- */
-export function Indicateur({
-  titre,
-  valeur,
-  detail,
-  definition,
-  lien,
-  className,
-  ton,
-}: {
+export function Indicateur({ titre, valeur, detail, definition, lien, className, ton, vedette = false }: {
   titre: string;
   valeur: React.ReactNode | null;
   detail?: React.ReactNode;
@@ -24,33 +11,30 @@ export function Indicateur({
   lien?: string;
   className?: string;
   ton?: "alerte" | "ok";
+  vedette?: boolean;
 }) {
-  const contenu = (
-    <Card className={cn("gap-2 h-full", lien && "transition-colors hover:bg-muted/40", className)}>
-      <CardHeader className="gap-1">
-        <CardDescription className="flex items-center gap-1.5">
-          {titre}
-          {definition && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <InfoIcon className="size-3.5 opacity-60" aria-label={`Définition : ${definition}`} />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">{definition}</TooltipContent>
-            </Tooltip>
-          )}
-        </CardDescription>
-        <CardTitle className={cn("text-2xl tabular-nums", ton === "alerte" && "text-destructive", valeur === null && "text-muted-foreground text-base font-normal")}>
-          {valeur === null ? "Données indisponibles" : valeur}
-        </CardTitle>
-      </CardHeader>
-      {detail && <CardContent className="text-muted-foreground text-xs">{detail}</CardContent>}
-    </Card>
-  );
-  return lien ? (
-    <Link href={lien} className="block rounded-xl focus-visible:outline-2 focus-visible:outline-ring">
-      {contenu}
-    </Link>
-  ) : (
-    contenu
+  return (
+    <article className={cn("crm-kpi", className)} data-vedette={vedette}>
+      <div className="crm-kpi-head">
+        <h2>{titre}</h2>
+        {definition && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" className="crm-kpi-info" aria-label={`Définition de « ${titre} »`}><InfoIcon /></button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">{definition}</TooltipContent>
+          </Tooltip>
+        )}
+        {lien && (
+          <Link href={lien} className="crm-kpi-arrow ml-auto after:absolute after:inset-0" aria-label={`Voir le détail de « ${titre} »`}>
+            <ArrowUpRightIcon className="size-3.5" />
+          </Link>
+        )}
+      </div>
+      <div className={cn("crm-kpi-value", ton === "alerte" && "text-destructive")} data-absente={valeur === null}>
+        {valeur === null ? "Données indisponibles" : valeur}
+      </div>
+      {detail && <div className="crm-kpi-detail">{detail}</div>}
+    </article>
   );
 }

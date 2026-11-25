@@ -46,3 +46,6 @@ node_modules.nosync
 prisma/recette.db*
 /.next
 .claude/
+
+# Schéma généré pour le client PostgreSQL
+/prisma/postgresql/schema.prisma

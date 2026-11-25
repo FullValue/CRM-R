@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { ArrowUpRightIcon, PackageIcon } from "lucide-react";
 import { exigerEspaceAdmin } from "@/lib/auth/acces";
 import { prisma } from "@/lib/db";
-import { ESPACES, LIENS_SHOPIFY } from "@/lib/domaine";
+import { LIENS_SHOPIFY } from "@/lib/domaine";
 import { euros } from "@/lib/argent";
 import { horodatage } from "@/lib/dates";
 import { EntetePage } from "@/components/entete-page";
@@ -21,8 +22,9 @@ export default async function PageCatalogue({ params, searchParams }: { params: 
   const { espace } = await params;
   await exigerEspaceAdmin(espace);
   const sp = await searchParams;
-  const etat = sp.etat ?? "ACTIF";
-  const q = (sp.q ?? "").trim().toLowerCase();
+  const etat = sp.etat === "tous" || sp.etat === "ARCHIVE" ? sp.etat : "ACTIF";
+  const dispo = sp.dispo === "rupture" || sp.dispo === "disponible" ? sp.dispo : undefined;
+  const q = typeof sp.q === "string" ? sp.q.trim().toLowerCase() : "";
 
   const refs = await prisma.reference.findMany({
     where: { activiteId: espace, ...(etat !== "tous" ? { etat } : {}) },
@@ -33,15 +35,15 @@ export default async function PageCatalogue({ params, searchParams }: { params: 
     .filter((r) => !q || r.code.toLowerCase().includes(q) || r.libelle.toLowerCase().includes(q) || r.formats.some((f) => f.sku.toLowerCase().includes(q)))
     .map((r) => ({
       ...r,
-      formats: r.formats.filter((f) => (sp.dispo === "rupture" ? f.quantite <= 0 : sp.dispo === "disponible" ? f.quantite > 0 : true) && (etat === "tous" || f.etat === etat || r.etat === "ARCHIVE")),
+      formats: r.formats.filter((f) => (dispo === "rupture" ? f.quantite <= 0 : dispo === "disponible" ? f.quantite > 0 : true) && (etat === "tous" || f.etat === etat || r.etat === "ARCHIVE")),
     }))
-    .filter((r) => !sp.dispo || r.formats.length > 0);
+    .filter((r) => !dispo || r.formats.length > 0);
 
   return (
     <div className="space-y-6">
       <EntetePage
-        titre={`Catalogue · ${ESPACES[espace as keyof typeof ESPACES].nom}`}
-        description="Références, formats, prix de vente, stock disponible et rattachement Shopify. L'archivage retire un article de la saisie et conserve son historique."
+        titre="Catalogue"
+        description="Consultez les formats, les prix, le stock et les liens Shopify. Ouvrez une référence pour la modifier."
         actions={<NouvelleReference espace={espace} prefixe={PREFIXES[espace] ?? "REF"} />}
       />
       <BarreFiltres
@@ -69,6 +71,7 @@ export default async function PageCatalogue({ params, searchParams }: { params: 
                 <TableHead>État</TableHead>
                 <TableHead>Shopify</TableHead>
                 <TableHead>Mise à jour du stock</TableHead>
+                <TableHead><span className="sr-only">Ouvrir</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -80,12 +83,12 @@ export default async function PageCatalogue({ params, searchParams }: { params: 
                 return (
                   <TableRow key={r.id}>
                     <TableCell>
-                      <Link href={`/${espace}/catalogue/${r.id}`} className="font-medium hover:underline">
-                        {r.libelle}
-                      </Link>
-                      <div className="text-xs text-muted-foreground">
-                        {r.code}
-                        {r.famille ? ` · ${r.famille}` : ""}
+                      <div className="flex items-center gap-3">
+                        <span className="crm-table-icon" aria-hidden="true"><PackageIcon /></span>
+                        <div>
+                          <Link href={`/${espace}/catalogue/${r.id}`} className="font-semibold hover:underline">{r.libelle}</Link>
+                          <div className="text-xs text-muted-foreground">{r.code}{r.famille ? ` · ${r.famille}` : ""}</div>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -111,6 +114,7 @@ export default async function PageCatalogue({ params, searchParams }: { params: 
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{horodatage(maj)}</TableCell>
+                    <TableCell className="text-right"><Link href={`/${espace}/catalogue/${r.id}`} className="crm-kpi-arrow inline-grid size-7" aria-label={`Ouvrir ${r.libelle}`}><ArrowUpRightIcon className="size-3.5" /></Link></TableCell>
                   </TableRow>
                 );
               })}

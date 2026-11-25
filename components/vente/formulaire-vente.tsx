@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import { centsVersSaisie, euros, saisieVersCents } from "@/lib/argent";
 import { suggererZone } from "@/lib/calcul/geo";
 import { CANAUX } from "@/lib/domaine";
 import type { IssueVente } from "@/lib/services/ventes";
+import { SelecteurReference } from "@/components/vente/selecteur-reference";
 
 type Ligne = { cle: string; referenceId: string; formatId: string; quantite: string; prix: string };
 type Provenance = "PROPOSEE" | "SAISIE" | "NON_RENSEIGNEE";
@@ -84,6 +85,8 @@ export function FormulaireVente({
     const pu = peutModifierPrix && l.prix !== "" ? saisieVersCents(l.prix) : f.prixVenteCents;
     return Number.isInteger(q) && q > 0 && pu !== null ? acc + q * pu : acc;
   }, 0);
+
+  const nbArticles = lignes.reduce((a, l) => (formats.has(l.formatId) ? a + (Number(l.quantite) || 0) : a), 0);
 
   // Avertit avant de quitter la page avec une saisie en cours (changement d'espace, VEN-02).
   useEffect(() => {
@@ -207,9 +210,9 @@ export function FormulaireVente({
 
   if (succes) {
     return (
-      <Card className="max-w-xl">
+      <Card className="mx-auto w-full max-w-xl animate-in fade-in-0 slide-in-from-bottom-3 duration-500">
         <CardHeader className="justify-items-center text-center">
-          <CheckCircle2Icon className="size-12 text-emerald-600" />
+          <span className="mx-auto grid size-16 place-items-center rounded-full bg-emerald-50 animate-in zoom-in-50 duration-500"><CheckCircle2Icon className="size-10 text-emerald-600" /></span>
           <CardTitle className="text-xl">{succes.statut === "deja" ? "Vente déjà enregistrée" : "Vente enregistrée"}</CardTitle>
           <CardDescription>
             Référence de la vente <span className="font-mono font-semibold text-foreground">{succes.numero}</span> · total {euros(succes.montantCents)}
@@ -270,29 +273,19 @@ export function FormulaireVente({
                     )}
                   </div>
                   <Field data-invalid={!!erreurs[`ligne-${i}-format`] || undefined}>
-                    <FieldLabel>Référence</FieldLabel>
-                    <Select
-                      value={l.referenceId}
-                      onValueChange={(v) => {
+                    <FieldLabel htmlFor={`ref-${l.cle}`}>Parfum</FieldLabel>
+                    <SelecteurReference
+                      id={`ref-${l.cle}`}
+                      catalogue={donnees.catalogue}
+                      valeur={l.referenceId}
+                      bloquer={bloquer}
+                      invalide={!!erreurs[`ligne-${i}-format`]}
+                      onChoisir={(v) => {
                         const r = donnees.catalogue.find((x) => x.id === v);
-                        const premier = r?.formats.find((x) => !bloquer || x.quantite > 0) ?? r?.formats[0];
-                        majLigne(l.cle, { referenceId: v, formatId: r?.formats.length === 1 ? (premier?.id ?? "") : "", prix: "" });
+                        const disponibles = r?.formats.filter((x) => !bloquer || x.quantite > 0) ?? [];
+                        majLigne(l.cle, { referenceId: v, formatId: disponibles.length === 1 ? disponibles[0].id : "", prix: "" });
                       }}
-                    >
-                      <SelectTrigger className="w-full h-11" aria-invalid={!!erreurs[`ligne-${i}-format`] || undefined}>
-                        <SelectValue placeholder="Choisir un parfum" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Catalogue actif</SelectLabel>
-                          {donnees.catalogue.map((r) => (
-                            <SelectItem key={r.id} value={r.id}>
-                              {r.libelle} <span className="text-muted-foreground">· {r.code}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    />
                   </Field>
                   {ref && (
                     <Field data-invalid={!!erreurs[`ligne-${i}-format`] || undefined}>
@@ -310,7 +303,7 @@ export function FormulaireVente({
                               aria-label={`${x.libelle}, ${euros(x.prixVenteCents)}, ${x.quantite > 0 ? `${x.quantite} en stock` : "rupture"}`}
                               disabled={indispo}
                               onClick={() => majLigne(l.cle, { formatId: x.id, prix: "" })}
-                              className={`rounded-lg border p-2 text-left text-sm transition-colors disabled:opacity-40 ${choisi ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                              className={`crm-choix min-h-16 rounded-2xl p-2.5 text-left text-sm disabled:opacity-40 ${choisi ? "bg-primary text-primary-foreground" : "bg-[var(--crm-fill)] hover:bg-[var(--crm-fill-fort)]"}`}
                             >
                               <div className="font-medium">{x.libelle}</div>
                               <div className="tabular-nums">{euros(x.prixVenteCents)}</div>
@@ -322,15 +315,15 @@ export function FormulaireVente({
                       {erreurs[`ligne-${i}-format`] && <FieldError>{erreurs[`ligne-${i}-format`]}</FieldError>}
                     </Field>
                   )}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2">
                     <Field data-invalid={!!erreurs[`ligne-${i}-quantite`] || undefined}>
                       <FieldLabel htmlFor={`q-${l.cle}`}>Quantité</FieldLabel>
                       <div className="flex items-center gap-1">
-                        <Button type="button" variant="outline" size="icon-lg" aria-label="Diminuer" onClick={() => majLigne(l.cle, { quantite: String(Math.max(1, q - 1)) })}>
+                        <Button type="button" variant="outline" size="icon-lg" className="size-11 shrink-0 rounded-xl" aria-label="Diminuer" onClick={() => majLigne(l.cle, { quantite: String(Math.max(1, q - 1)) })}>
                           <MinusIcon />
                         </Button>
-                        <Input id={`q-${l.cle}`} inputMode="numeric" className="h-9 text-center tabular-nums" value={l.quantite} onChange={(e) => majLigne(l.cle, { quantite: e.target.value.replace(/[^\d]/g, "") })} />
-                        <Button type="button" variant="outline" size="icon-lg" aria-label="Augmenter" onClick={() => majLigne(l.cle, { quantite: String(q + 1) })}>
+                        <Input id={`q-${l.cle}`} inputMode="numeric" className="h-11 min-w-0 text-center text-base font-semibold tabular-nums" value={l.quantite} onChange={(e) => majLigne(l.cle, { quantite: e.target.value.replace(/[^\d]/g, "") })} />
+                        <Button type="button" variant="outline" size="icon-lg" className="size-11 shrink-0 rounded-xl" aria-label="Augmenter" onClick={() => majLigne(l.cle, { quantite: String(q + 1) })}>
                           <PlusIcon />
                         </Button>
                       </div>
@@ -339,9 +332,9 @@ export function FormulaireVente({
                     <Field data-invalid={!!erreurs[`ligne-${i}-prix`] || undefined}>
                       <FieldLabel htmlFor={`p-${l.cle}`}>Prix unitaire</FieldLabel>
                       {peutModifierPrix ? (
-                        <Input id={`p-${l.cle}`} inputMode="decimal" className="h-9 tabular-nums" placeholder={f ? centsVersSaisie(f.prixVenteCents) : "—"} value={l.prix} onChange={(e) => majLigne(l.cle, { prix: e.target.value })} disabled={!f} />
+                        <Input id={`p-${l.cle}`} inputMode="decimal" className="h-11 tabular-nums" placeholder={f ? centsVersSaisie(f.prixVenteCents) : "—"} value={l.prix} onChange={(e) => majLigne(l.cle, { prix: e.target.value })} disabled={!f} />
                       ) : (
-                        <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 tabular-nums text-sm">{f ? euros(f.prixVenteCents) : "—"}</div>
+                        <div className="flex h-11 items-center rounded-xl bg-[var(--crm-fill)] px-3 tabular-nums text-sm font-medium">{f ? euros(f.prixVenteCents) : "—"}</div>
                       )}
                       {erreurs[`ligne-${i}-prix`] && <FieldError>{erreurs[`ligne-${i}-prix`]}</FieldError>}
                     </Field>
@@ -360,7 +353,7 @@ export function FormulaireVente({
 
         <Field data-invalid={!!erreurs.client || undefined}>
           <FieldLabel htmlFor="client">Client</FieldLabel>
-          <Input id="client" className="h-11" value={client} onChange={(e) => setClient(e.target.value)} placeholder="Nom ou libellé (ex. Mme Martin, client de passage)" maxLength={120} autoComplete="off" />
+          <Input id="client" className="h-11" value={client} onChange={(e) => setClient(e.target.value)} placeholder="Ex. Mme Martin, client de passage" maxLength={120} autoComplete="off" />
           {erreurs.client && <FieldError>{erreurs.client}</FieldError>}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -371,11 +364,11 @@ export function FormulaireVente({
             {erreurs.dateVente && <FieldError>{erreurs.dateVente}</FieldError>}
           </Field>
           <Field data-invalid={!!erreurs.zone || undefined}>
-            <FieldLabel>Zone de vente</FieldLabel>
+            <FieldLabel htmlFor="vente-zone">Zone de vente</FieldLabel>
             <div className="flex gap-2">
-              <Select value={zoneId || "aucune"} onValueChange={choisirZone}>
-                <SelectTrigger className="w-full h-11">
-                  <SelectValue />
+              <Select value={zoneId || (donnees.zoneObligatoire ? "" : "aucune")} onValueChange={choisirZone}>
+                <SelectTrigger id="vente-zone" className="min-w-0 flex-1 h-11">
+                  <SelectValue placeholder="Choisir une zone" />
                 </SelectTrigger>
                 <SelectContent>
                   {!donnees.zoneObligatoire && <SelectItem value="aucune">Zone non renseignée</SelectItem>}
@@ -407,9 +400,9 @@ export function FormulaireVente({
             {erreurs.zone && <FieldError>{erreurs.zone}</FieldError>}
           </Field>
         </div>
-        <Field orientation="horizontal">
-          <Checkbox id="reglee" checked={reglee} onCheckedChange={(v) => setReglee(v === true)} />
-          <FieldLabel htmlFor="reglee" className="font-normal">
+        <Field orientation="horizontal" className="min-h-12 rounded-xl bg-[var(--crm-fill)] px-3 py-2">
+          <Checkbox id="reglee" className="size-5" checked={reglee} onCheckedChange={(v) => setReglee(v === true)} />
+          <FieldLabel htmlFor="reglee" className="flex-1 py-1 font-normal">
             Paiement reçu à la date de vente
           </FieldLabel>
         </Field>
@@ -418,7 +411,7 @@ export function FormulaireVente({
           <Textarea id="commentaire" rows={2} maxLength={500} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} placeholder="Informations utiles uniquement" />
         </Field>
 
-        <details className="rounded-lg border p-3 text-sm">
+        <details className="rounded-2xl bg-white p-4 text-sm shadow-[var(--crm-ombre)]">
           <summary className="cursor-pointer font-medium">Livraison {admin ? "" : "souhaitée"} (facultatif)</summary>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <Field>
@@ -438,7 +431,7 @@ export function FormulaireVente({
         </details>
 
         {admin && (
-          <div className="grid gap-4 sm:grid-cols-3 rounded-lg border p-3">
+          <div className="grid gap-4 sm:grid-cols-3 rounded-2xl bg-white p-4 shadow-[var(--crm-ombre)]">
             <Field>
               <FieldLabel>Vendeur</FieldLabel>
               <Select value={vendeurId || "moi"} onValueChange={(v) => setVendeurId(v === "moi" ? "" : v)}>
@@ -478,9 +471,19 @@ export function FormulaireVente({
             </Field>
           </div>
         )}
+        <div className="crm-barre-action lg:hidden">
+          <div>
+            <small>{nbArticles > 0 ? `${nbArticles} article${nbArticles > 1 ? "s" : ""} · ${donnees.base}` : "Aucun article choisi"}</small>
+            <strong key={total} data-anime>{euros(total)}</strong>
+          </div>
+          <Button size="lg" className="h-12 rounded-xl px-5 text-base" onClick={envoyer} disabled={enCours}>
+            {enCours ? <Spinner /> : <CheckCircle2Icon />}
+            Confirmer
+          </Button>
+        </div>
       </FieldGroup>
 
-      <Card className="sticky bottom-2 z-10 shadow-lg lg:top-20 lg:bottom-auto lg:shadow-none">
+      <Card className="sticky top-24 hidden lg:flex">
         <CardHeader>
           <CardTitle>Récapitulatif</CardTitle>
           <CardDescription>Vérifiez avant de confirmer · montants {donnees.base}</CardDescription>

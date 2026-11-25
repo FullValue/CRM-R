@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { CircleDollarSignIcon, MapPinIcon, PlusIcon, TruckIcon } from "lucide-react";
 import { exigerEspaceAdmin } from "@/lib/auth/acces";
 import { prisma } from "@/lib/db";
 import { euros, nombre, pourcent } from "@/lib/argent";
 import { dateCourte, dateLongue, resoudrePeriode } from "@/lib/dates";
 import { agregerVentes } from "@/lib/calcul/vente";
 import { meilleuresJournees, meilleuresVentes } from "@/lib/calcul/classement";
-import { filtreVentes, serieParJour, ventesDetaillees } from "@/lib/requetes/pm";
+import { filtreVentes, ventesDetaillees } from "@/lib/requetes/pm";
+import { serieChiffreAffaires } from "@/lib/calcul/serie-ventes";
 import { lireReglages } from "@/lib/reglages";
 import { EntetePage, Section } from "@/components/entete-page";
 import { BarreFiltres } from "@/components/filtres";
@@ -48,7 +50,22 @@ export default async function TableauPM({
   const aCompleter = eligibles.filter((v) => v.coutSource === "A_COMPLETER").length;
   const sansZone = eligibles.filter((v) => !v.zoneId).length;
   const canaux = [...new Set(eligibles.map((v) => v.canal))];
-  const serie = serieParJour(ventes, periode);
+  const serie = serieChiffreAffaires(ventes, periode);
+  const parametresPeriode = new URLSearchParams();
+  if (periode.cle === "perso") {
+    parametresPeriode.set("du", periode.debut);
+    parametresPeriode.set("au", periode.fin);
+  } else if (sp.periode) parametresPeriode.set("periode", periode.cle);
+  const journal = (filtres: Record<string, string> = {}) => {
+    const query = new URLSearchParams(parametresPeriode);
+    for (const [cle, valeur] of Object.entries(filtres)) query.set(cle, valeur);
+    return `/pm/ventes${query.size ? `?${query}` : ""}`;
+  };
+  const suivi = [
+    { href: "/pm/livraisons", label: "Ventes avec livraison", detail: "Planifier et confirmer", valeur: avecLivraison, icone: TruckIcon },
+    { href: journal({ etat: "NON_REGLEE" }), label: "Ventes non réglées", detail: `${euros(nonReglees.reduce((a, v) => a + v.montantCents, 0))} à encaisser`, valeur: nonReglees.length, icone: CircleDollarSignIcon },
+    { href: journal({ zone: "aucune" }), label: "Ventes sans zone", detail: "Retrouver les ventes concernées", valeur: sansZone, icone: MapPinIcon },
+  ];
   const livraisonsParDate = new Map<string, { numero: string; date: string | null; etat: string }[]>();
   for (const v of eligibles) {
     if (v.livraisonDate) livraisonsParDate.set(v.dateVente, [...(livraisonsParDate.get(v.dateVente) ?? []), { numero: v.numero, date: v.livraisonDate, etat: v.livraisonEtat }]);
@@ -61,17 +78,17 @@ export default async function TableauPM({
     <div className="space-y-8">
       <EntetePage
         titre="Parfumerie Mobile"
-        description={`Performances de la période · date de référence : date de vente · montants ${reglages["vente.base_montants"]} · canaux couverts : ${canaux.length ? canaux.join(", ").toLowerCase() : "aucun"}.`}
+        description={`Suivez vos ventes par date de vente. Montants ${reglages["vente.base_montants"]} · Canaux de la période : ${canaux.length ? canaux.join(", ").toLowerCase() : "aucun"}.`}
         actions={
           <Button asChild>
-            <Link href="/pm/ventes/nouvelle">Nouvelle vente</Link>
+            <Link href="/pm/ventes/nouvelle"><PlusIcon /> Nouvelle vente</Link>
           </Button>
         }
       />
       <BarreFiltres periode />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Indicateur titre="Chiffre d'affaires suivi" valeur={euros(ag.caCents)} detail={`${ag.nbVentes} vente(s) · ${nombre(unites)} unité(s)`} definition="Somme des montants des ventes non annulées de la période, corrections comprises." lien="/pm/ventes" />
+      <div className="crm-kpi-grid">
+        <Indicateur titre="Chiffre d'affaires suivi" vedette valeur={euros(ag.caCents)} detail={`${ag.nbVentes} vente(s) · ${nombre(unites)} unité(s)`} definition="Somme des montants des ventes non annulées de la période, corrections comprises." lien={journal()} />
         <Indicateur
           titre="Marge brute estimée"
           valeur={ag.nbCoutConnu === 0 ? null : euros(ag.margeCents)}
@@ -85,27 +102,37 @@ export default async function TableauPM({
           detail={`${ag.nbCoutConnu}/${ag.nbVentes} ventes · CA couvert ${euros(ag.caCouvertCents)}${aCompleter ? ` · ${aCompleter} à compléter` : ""}`}
           definition="Ventes éligibles à coût connu ÷ ventes éligibles."
           ton={ag.couverture !== null && ag.couverture < 0.8 ? "alerte" : undefined}
-          lien="/pm/ventes?etat=A_COMPLETER"
+          lien={journal({ etat: "A_COMPLETER" })}
         />
         <Indicateur titre="Panier moyen" valeur={ag.nbVentes ? euros(Math.round(ag.caCents / ag.nbVentes)) : null} detail={`${nbRefsActives} références actives`} />
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Indicateur titre="Ventes avec livraison renseignée" valeur={avecLivraison} detail="Date planifiée distincte de la date de vente" lien="/pm/livraisons" />
-        <Indicateur titre="Ventes non réglées" valeur={nonReglees.length} detail={`${euros(nonReglees.reduce((a, v) => a + v.montantCents, 0))} hors fonds de roulement`} lien="/pm/tresorerie" />
-        <Indicateur titre="Ventes sans zone" valeur={sansZone} detail="Comptées dans la ligne « Zone non renseignée »" lien="/pm/zones" />
+      <div className="grid gap-4 min-[1180px]:grid-cols-[minmax(0,1fr)_minmax(245px,0.43fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Chiffre d’affaires par {serie.granularite === "mois" ? "mois" : "jour"}</CardTitle>
+            <CardDescription>
+              {periode.cle === "tout" ? "Tout l’historique" : `${dateCourte(periode.debut)} → ${dateCourte(periode.fin)}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {serie.donnees.length ? <GraphiqueCAJour donnees={serie.donnees} parMois={serie.granularite === "mois"} /> : <p className="py-10 text-center text-sm text-muted-foreground">Aucune vente sur la période.</p>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Suivi des ventes</CardTitle>
+          </CardHeader>
+          <CardContent className="crm-monitor">
+            {suivi.map(({ href, label, detail, valeur, icone: Icone }) => (
+              <Link key={href} href={href}>
+                <i aria-hidden="true"><Icone /></i>
+                <span><strong>{label}</strong><small>{detail}</small></span>
+                <b>{valeur}</b>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Chiffre d&apos;affaires par jour de vente</CardTitle>
-          <CardDescription>
-            {dateCourte(periode.debut < "2001-01-01" ? (serie[0]?.date ?? periode.debut) : periode.debut)} → {dateCourte(periode.fin > "2900-01-01" ? (serie.at(-1)?.date ?? periode.fin) : periode.fin)}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <GraphiqueCAJour donnees={serie} />
-        </CardContent>
-      </Card>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Section
@@ -194,7 +221,7 @@ export default async function TableauPM({
         </Section>
       </div>
 
-      <Section titre="Extrait du journal" actions={<Button variant="outline" size="sm" asChild><Link href="/pm/ventes">Tout le journal</Link></Button>}>
+      <Section titre="Extrait du journal" actions={<Button variant="outline" size="sm" asChild><Link href={journal()}>Tout le journal</Link></Button>}>
         <Card className="p-0 overflow-hidden">
           <Table>
             <TableHeader>

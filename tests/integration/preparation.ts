@@ -6,7 +6,9 @@ import path from "node:path";
 export default function preparation() {
   const racine = path.resolve(import.meta.dirname, "../..");
   const base = path.join(racine, "prisma", "recette.db");
-  for (const f of [base, `${base}-journal`]) if (fs.existsSync(f)) fs.rmSync(f);
+  for (const f of [base, `${base}-journal`, `${base}-wal`, `${base}-shm`]) if (fs.existsSync(f)) fs.rmSync(f);
+  // Un fichier vide suffit à SQLite et évite le chemin de création de la CLI.
+  fs.writeFileSync(base, "", { flag: "wx" });
   execFileSync(process.execPath, [path.join(racine, "node_modules/prisma/build/index.js"), "db", "push", "--skip-generate"], {
     cwd: racine,
     env: { ...process.env, DATABASE_URL: "file:./recette.db" },

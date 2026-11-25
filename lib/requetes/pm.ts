@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import type { Periode } from "@/lib/dates";
-import { ajouterJours } from "@/lib/dates";
 import { lireReglages } from "@/lib/reglages";
 
 export type FiltresVentes = {
@@ -90,19 +89,3 @@ export async function donneesFormulaireVente() {
 }
 
 export type DonneesFormulaireVente = Awaited<ReturnType<typeof donneesFormulaireVente>>;
-
-/** Série du CA par jour (date de vente), jours sans vente inclus. */
-export function serieParJour(ventes: { dateVente: string; montantCents: number; statut: string }[], p: Periode) {
-  const map = new Map<string, number>();
-  for (const v of ventes) if (v.statut !== "ANNULEE") map.set(v.dateVente, (map.get(v.dateVente) ?? 0) + v.montantCents);
-  const debut = ventes.length && p.debut < "2001-01-01" ? ventes.map((v) => v.dateVente).sort()[0] : p.debut;
-  const res: { date: string; ca: number }[] = [];
-  let jour = debut;
-  let garde = 0;
-  while (jour <= p.fin && garde < 400) {
-    res.push({ date: jour, ca: (map.get(jour) ?? 0) / 100 });
-    jour = ajouterJours(jour, 1);
-    garde++;
-  }
-  return res;
-}

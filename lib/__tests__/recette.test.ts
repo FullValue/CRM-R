@@ -1,3 +1,4 @@
+import { serieChiffreAffaires } from "@/lib/calcul/serie-ventes";
 /**
  * Exemples chiffrés du cahier des charges (chapitres 03, 05, 06, 07, 09)
  * et scénarios de recette R06, R07, R10, R11, R15, R19, R20.
@@ -274,5 +275,28 @@ describe("Maison Maya — coût de revient (valeurs du classeur Maya OS)", () =>
   it("éléments manquants signalés", () => {
     const r = decompositionMaya({ ...ctx(50, "110"), prixLiquides: [] }, D);
     expect(r.manquants).toContain("prix du liquide");
+  });
+});
+
+describe("PIL-02 — évolution du chiffre d’affaires", () => {
+  const ventes = [
+    { dateVente: "2024-01-02", montantCents: 8000, statut: "CONFIRMEE" },
+    { dateVente: "2026-11-05", montantCents: 4250, statut: "CONFIRMEE" },
+    { dateVente: "2026-11-05", montantCents: 100, statut: "CONFIRMEE" },
+    { dateVente: "2026-11-06", montantCents: 2000, statut: "ANNULEE" },
+  ];
+
+  it("conserve les ventes au-delà des 400 premiers jours, même sur tout l’historique", () => {
+    expect(serieChiffreAffaires(ventes, { debut: "2000-01-01", fin: "2999-12-31", cle: "tout" })).toEqual({
+      granularite: "mois",
+      donnees: [{ date: "2024-01-01", ca: 80 }, { date: "2026-11-01", ca: 43.5 }],
+    });
+  });
+
+  it("garde les jours sans ventes et les centimes sur les périodes courtes", () => {
+    expect(serieChiffreAffaires(ventes, { debut: "2026-11-04", fin: "2026-11-06", cle: "perso" })).toEqual({
+      granularite: "jour",
+      donnees: [{ date: "2026-11-04", ca: 0 }, { date: "2026-11-05", ca: 43.5 }, { date: "2026-11-06", ca: 0 }],
+    });
   });
 });

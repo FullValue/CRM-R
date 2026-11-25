@@ -81,4 +81,14 @@ des charges, réglables dans `/admin/reglages` quand elles sont paramétrables.
   la vue d'ensemble signale un total partiel.
 - Commandes B2B, clients et grilles tarifaires Maya OS : à arbitrer (D01).
 - Authentification renforcée administrateur, hors-ligne complet, sauvegardes (D11, D12).
-- Production : passer `provider` à `postgresql` dans `prisma/schema.prisma`.
+## Base de production
+
+Le build Vercel génère le client Prisma PostgreSQL à partir du même schéma que
+le client SQLite local. Les variables de connexion du projet Vercel sont
+utilisées directement par le build et par l’application.
+
+La commande `npm run db:migrate:prod` applique les migrations versionnées de
+`prisma/postgresql/migrations` à la connexion PostgreSQL fournie dans
+l’environnement. L’initialisation crée les trois activités et les emplacements
+de configuration Shopify. Le seed de démonstration est réservé à la recette
+locale.

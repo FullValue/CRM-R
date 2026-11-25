@@ -33,9 +33,9 @@ export function ParcoursWhatsApp({ offre, references, referenceInitiale }: { off
       </CardHeader>
       <CardContent className="space-y-4">
         <Field>
-          <FieldLabel>Parfum</FieldLabel>
+          <FieldLabel htmlFor="livraison-parfum">Parfum</FieldLabel>
           <Select value={reference} onValueChange={setReference}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="livraison-parfum" className="w-full">
               <SelectValue placeholder="Choisir un parfum" />
             </SelectTrigger>
             <SelectContent>
@@ -48,7 +48,7 @@ export function ParcoursWhatsApp({ offre, references, referenceInitiale }: { off
           </Select>
         </Field>
         <Field>
-          <FieldLabel>Ville</FieldLabel>
+          <FieldLabel htmlFor="livraison-ville">Ville</FieldLabel>
           <Select
             value={ville}
             onValueChange={(v) => {
@@ -57,7 +57,7 @@ export function ParcoursWhatsApp({ offre, references, referenceInitiale }: { off
               setCreneau("");
             }}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="livraison-ville" className="w-full">
               <SelectValue placeholder="Choisir une ville" />
             </SelectTrigger>
             <SelectContent>
@@ -82,7 +82,7 @@ export function ParcoursWhatsApp({ offre, references, referenceInitiale }: { off
         )}
         {offreVille && offreVille.dates.length > 0 && (
           <Field>
-            <FieldLabel>Date</FieldLabel>
+            <FieldLabel htmlFor="livraison-date">Date</FieldLabel>
             <Select
               value={date}
               onValueChange={(v) => {
@@ -90,7 +90,7 @@ export function ParcoursWhatsApp({ offre, references, referenceInitiale }: { off
                 setCreneau("");
               }}
             >
-              <SelectTrigger className="w-full capitalize">
+              <SelectTrigger id="livraison-date" className="w-full capitalize">
                 <SelectValue placeholder="Choisir une date" />
               </SelectTrigger>
               <SelectContent>
@@ -110,7 +110,7 @@ export function ParcoursWhatsApp({ offre, references, referenceInitiale }: { off
               {offreDate.creneaux.map((c) => {
                 const v = `${c.debut}-${c.fin}`;
                 return (
-                  <Button key={v} type="button" variant={creneau === v ? "default" : "outline"} onClick={() => setCreneau(v)}>
+                  <Button key={v} type="button" aria-pressed={creneau === v} variant={creneau === v ? "default" : "outline"} onClick={() => setCreneau(v)}>
                     {heure(c.debut)} – {heure(c.fin)}
                   </Button>
                 );
@@ -120,8 +120,8 @@ export function ParcoursWhatsApp({ offre, references, referenceInitiale }: { off
         )}
         {complet && (
           <Field>
-            <FieldLabel>Message qui sera ouvert dans WhatsApp</FieldLabel>
-            <Textarea readOnly value={message} rows={4} className="text-sm" />
+            <FieldLabel htmlFor="livraison-message">Message qui sera ouvert dans WhatsApp</FieldLabel>
+            <Textarea id="livraison-message" readOnly value={message} rows={4} className="text-sm" />
           </Field>
         )}
         {!offre.numero && (
@@ -131,15 +131,13 @@ export function ParcoursWhatsApp({ offre, references, referenceInitiale }: { off
         )}
       </CardContent>
       <CardFooter>
-        <Button className="w-full bg-[#25D366] text-white hover:bg-[#1ebe5a]" size="lg" disabled={!complet || !offre.numero} asChild={!!complet && !!offre.numero}>
+        <Button className="w-full" size="lg" disabled={!complet || !offre.numero} asChild={!!complet && !!offre.numero}>
           {complet && offre.numero ? (
             <a href={lienWhatsApp(offre.numero, message)} target="_blank" rel="noopener noreferrer">
               <MessageCircleIcon /> Continuer sur WhatsApp
             </a>
           ) : (
-            <span>
-              <MessageCircleIcon /> Continuer sur WhatsApp
-            </span>
+            <><MessageCircleIcon /> Continuer sur WhatsApp</>
           )}
         </Button>
       </CardFooter>

@@ -16,7 +16,7 @@ export default async function PageLivraison({ searchParams }: { searchParams: Pr
     prisma.reference.findMany({ where: { activiteId: "pm", etat: "ACTIF" }, select: { code: true, libelle: true }, orderBy: { code: "asc" } }),
   ]);
   return (
-    <main className="flex min-h-svh items-start justify-center bg-muted/40 p-4 sm:items-center">
+    <main className="crm-public flex min-h-svh items-start justify-center bg-muted/40 p-4 sm:items-center">
       <ParcoursWhatsApp offre={offre} references={refs} referenceInitiale={ref} />
     </main>
   );

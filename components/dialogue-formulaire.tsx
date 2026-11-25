@@ -34,7 +34,7 @@ export function DialogueFormulaire<T>({
   return (
     <Dialog open={ouvert} onOpenChange={setOuvert}>
       <DialogTrigger asChild>{declencheur}</DialogTrigger>
-      <DialogContent className={large ? "sm:max-w-2xl" : "sm:max-w-lg"}>
+      <DialogContent className={large ? "sm:max-w-2xl" : "sm:max-w-lg"} {...(!description && { "aria-describedby": undefined })}>
         <DialogHeader>
           <DialogTitle>{titre}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

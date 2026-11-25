@@ -5,7 +5,12 @@ import { euros } from "@/lib/argent";
 import { ajouterJours, aujourdhui, dateCourte, horodatage } from "@/lib/dates";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Button } from "@/components/ui/button";
+import { EntetePage } from "@/components/entete-page";
+import { Indicateur } from "@/components/indicateur";
+import Link from "next/link";
+import { PlusIcon } from "lucide-react";
 
 export const metadata: Metadata = { title: "Mes ventes" };
 
@@ -18,12 +23,19 @@ export default async function MesVentes() {
     include: { lignes: true },
     orderBy: { saisieLe: "desc" },
   });
-  const totalJour = ventes.filter((v) => v.statut !== "ANNULEE" && v.dateVente === aujourdhui()).reduce((a, v) => a + v.montantCents, 0);
+  const duJour = ventes.filter((v) => v.statut !== "ANNULEE" && v.dateVente === aujourdhui());
+  const totalJour = duJour.reduce((a, v) => a + v.montantCents, 0);
+  const totalSemaine = ventes.filter((v) => v.statut !== "ANNULEE").reduce((a, v) => a + v.montantCents, 0);
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Mes ventes</h1>
-        <p className="text-sm text-muted-foreground">Vos saisies des 7 derniers jours · aujourd&apos;hui : {euros(totalJour)}</p>
+      <EntetePage
+        titre="Mes ventes"
+        description="Vos saisies des 7 derniers jours."
+        actions={<Button asChild size="lg"><Link href="/vendeur"><PlusIcon /> Nouvelle vente</Link></Button>}
+      />
+      <div className="crm-kpi-grid !grid-cols-2">
+        <Indicateur titre="Aujourd’hui" vedette valeur={euros(totalJour)} detail={`${duJour.length} vente${duJour.length > 1 ? "s" : ""}`} />
+        <Indicateur titre="7 derniers jours" valeur={euros(totalSemaine)} detail={`${ventes.filter((v) => v.statut !== "ANNULEE").length} vente(s) confirmée(s)`} />
       </div>
       {ventes.length === 0 ? (
         <Empty className="border bg-background">
@@ -31,6 +43,7 @@ export default async function MesVentes() {
             <EmptyTitle>Aucune vente récente</EmptyTitle>
             <EmptyDescription>Vos ventes apparaîtront ici après confirmation.</EmptyDescription>
           </EmptyHeader>
+          <EmptyContent><Button asChild><Link href="/vendeur"><PlusIcon /> Déclarer une vente</Link></Button></EmptyContent>
         </Empty>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">

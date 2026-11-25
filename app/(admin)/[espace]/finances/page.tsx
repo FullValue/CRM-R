@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowUpRightIcon } from "lucide-react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { exigerEspaceAdmin } from "@/lib/auth/acces";
@@ -14,6 +15,7 @@ import { GraphiqueBarresHorizontales } from "@/components/graphiques";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Vue financière" };
 
@@ -57,16 +59,20 @@ export default async function Finances({ params, searchParams }: { params: Promi
 
   return (
     <div className="space-y-8">
-      <EntetePage titre="Vue financière · Atelier Amari" description="Totaux de la période fondés sur les seules dépenses enregistrées et actives (date de rattachement). Les coûts fixes paramétrés sont des modèles : ils ne s'additionnent jamais aux totaux." />
+      <EntetePage
+        titre="Vue financière"
+        description="Suivez les dépenses enregistrées et leur répartition. La période s’applique à la date de rattachement."
+        actions={<Button asChild><Link href={lien({})}>Voir les dépenses <ArrowUpRightIcon /></Link></Button>}
+      />
       <BarreFiltres periode />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Indicateur titre="Total des dépenses" valeur={euros(total)} detail={`${depenses.length} dépense(s) active(s)${annulees ? ` · ${annulees} annulée(s) exclue(s)` : ""}`} lien={lien({})} />
+      <div className="crm-kpi-grid">
+        <Indicateur titre="Total des dépenses" vedette valeur={euros(total)} detail={`${depenses.length} dépense(s) active(s)${annulees ? ` · ${annulees} annulée(s) exclue(s)` : ""}`} lien={lien({})} />
         <Indicateur titre="Dont charges fixes enregistrées" valeur={euros(fixes)} detail="Dépenses de type « fixe » saisies sur la période" lien={lien({ type: "FIXE" })} />
         <Indicateur titre="Dont ponctuelles" valeur={euros(total - fixes)} lien={lien({ type: "PONCTUELLE" })} />
         <Indicateur titre="Non réparti" valeur={euros(nonReparti)} detail="Dépenses sans clé de répartition" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-4 min-[1180px]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader>
             <CardTitle>Montants par poste</CardTitle>

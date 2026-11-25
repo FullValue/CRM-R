@@ -12,12 +12,12 @@ export function EntetePage({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between", className)}>
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{titre}</h1>
-        {description && <p className="text-muted-foreground text-sm max-w-3xl">{description}</p>}
+    <div className={cn("crm-page-heading", className)}>
+      <div>
+        <h1>{titre}</h1>
+        {description && <p>{description}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="crm-page-heading-actions">{actions}</div>}
     </div>
   );
 }
@@ -27,7 +27,7 @@ export function Section({ titre, description, actions, children, className }: { 
     <section className={cn("space-y-3", className)}>
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-base font-semibold">{titre}</h2>
+          <h2 className="crm-section-title">{titre}</h2>
           {description && <p className="text-muted-foreground text-sm">{description}</p>}
         </div>
         {actions}
