@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+prisma/*.db*
+!.env.example
+node_modules.nosync
+.next.nosync
+prisma/recette.db*
+/.next
+.claude/

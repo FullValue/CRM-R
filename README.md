@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CRM centralisé — Maison Maya · Atelier Amari · Parfumerie Mobile
 
-## Getting Started
+Réalisation du cahier des charges v1.0 (25 novembre 2026). Trois espaces dans une
+même interface, une vue d'ensemble administrateur et un parcours vendeur mobile.
 
-First, run the development server:
+Stack : Next.js 16 (App Router, Turbopack) · TypeScript strict · Tailwind v4 ·
+shadcn/ui (Radix) · Prisma 6 (SQLite en local) · decimal.js · Leaflet · Recharts · Vitest.
+
+## Démarrage
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env        # puis renseigner CHIFFREMENT_CLE (openssl rand -base64 32)
+npm run db:push             # crée la base SQLite locale (prisma/dev.db)
+npm run db:seed             # jeu de démonstration FICTIF
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Réinitialiser la base locale : `npm run db:reset` (efface tout puis rejoue le seed).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Comptes de démonstration (seed, données fictives)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Compte | Mot de passe | Rôle |
+|---|---|---|
+| direction@crm.test | demo-direction-2026 | Administrateur désigné, 3 espaces |
+| maya@crm.test | demo-maya-2026 | Administrateur Maison Maya |
+| amari@crm.test | demo-amari-2026 | Administrateur Atelier Amari |
+| parfumerie@crm.test | demo-parfumerie-2026 | Administrateur Parfumerie Mobile |
+| vendeur@crm.test | demo-vendeur-2026 | Vendeur |
+| vendeuse@crm.test | demo-vendeuse-2026 | Vendeur, prix modifiable |
 
-## Learn More
+À supprimer ou changer avant toute mise en service.
 
-To learn more about Next.js, take a look at the following resources:
+### Projet placé sur un Bureau synchronisé iCloud (macOS)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+iCloud ralentit fortement la lecture des dizaines de milliers de fichiers de
+`node_modules`. Installez les dépendances hors iCloud et liez-les :
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+mkdir -p ~/.cache/crm-centralise && cp package.json package-lock.json ~/.cache/crm-centralise/
+(cd ~/.cache/crm-centralise && npm install)
+ln -sfn ~/.cache/crm-centralise/node_modules node_modules
+```
 
-## Deploy on Vercel
+`next.config.ts` adapte automatiquement la racine Turbopack à ce lien.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Tests
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm test                  # moteur de calcul : exemples chiffrés du cahier des charges
+npm run test:integration  # services sur base dédiée prisma/recette.db (R04, R05, R06, R07, R09, R10, R11, R12)
+npm run lint && npm run typecheck
+```
+
+## Correspondance avec le cahier des charges
+
+| Exigence | Où |
+|---|---|
+| ACC-01/02 comptes, espaces, droits, révocation | `lib/auth/*`, layouts `app/(admin)/[espace]`, `/admin/utilisateurs` |
+| STK-01..03 références, formats, mouvements, intégrité | `/[espace]/catalogue`, `/[espace]/stock`, `lib/services/stock.ts` |
+| MAY-01/02 inventaire et migration contrôlée | `/maya/import`, `lib/import.ts` |
+| Coûts de revient Maya (moteur Maya OS) | `/maya/couts`, `lib/calcul/coutMaya.ts` |
+| AMA-01..04 dépenses, coûts fixes, parts, vue financière | `/amari/*`, `lib/services/depenses.ts`, `lib/calcul/repartition.ts` |
+| PM-01..04 catalogue, ventes, corrections, journal | `/pm/ventes`, `lib/services/ventes.ts` |
+| FIN-01..03 prix de touche, marge, couverture, fonds de roulement | `/pm/rentabilite`, `/pm/tresorerie`, `lib/calcul/vente.ts`, `lib/calcul/tresorerie.ts` |
+| VEN-01/02 saisie mobile, relance sans doublon | `/vendeur`, `components/vente/formulaire-vente.tsx` |
+| GEO-01..03 zone proposée, provenance, carte | `/pm/zones`, `lib/calcul/geo.ts` |
+| PIL-01..03 tableaux de bord, définitions, dates | `/tableau-de-bord`, `/pm/tableau-de-bord` |
+| SHP-01..04 liaisons, file d'ajustements, notifications | `/admin/shopify`, `lib/shopify/*`, `app/api/shopify/webhook` |
+| LIV-01..03 créneaux, message WhatsApp, livraison | `/pm/livraisons`, `/livraison`, `/api/public/creneaux` |
+| DAT-01, SEC-01 centimes, dates distinctes, journal, secrets | `prisma/schema.prisma`, `lib/audit.ts`, `lib/chiffrement.ts`, `/admin/journal` |
+
+Les décisions D01 à D12 sont prises avec les modalités proposées par le cahier
+des charges, réglables dans `/admin/reglages` quand elles sont paramétrables.
+
+## Hors périmètre de cette version
+
+- Synchronisation Shopify testée sans boutique réelle : le code (lecture, rapprochement
+  par SKU, ajustements, notifications HMAC) attend un domaine et un jeton.
+- Import des commandes Shopify et sources de CA Maison Maya / Atelier Amari (D08) :
+  la vue d'ensemble signale un total partiel.
+- Commandes B2B, clients et grilles tarifaires Maya OS : à arbitrer (D01).
+- Authentification renforcée administrateur, hors-ligne complet, sauvegardes (D11, D12).
+- Production : passer `provider` à `postgresql` dans `prisma/schema.prisma`.

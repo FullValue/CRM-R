@@ -1,0 +1,563 @@
+// CRM centralisé — Maison Maya · Atelier Amari · Parfumerie Mobile
+//
+// Conventions (DAT-01) :
+// - Montants monétaires en centimes entiers (suffixe `Cents`). Aucun flottant.
+// - Dates métier (vente, livraison, règlement, dépense) en chaîne "AAAA-MM-JJ",
+//   calculées dans le fuseau Europe/Paris. Les horodatages techniques
+//   (saisie, création, modification) sont des DateTime distincts.
+// - Les valeurs à date d'effet (prix de touche, coûts Maya) sont immuables :
+//   on insère une nouvelle ligne, la résolution passe par `valeurAuJour`.
+// - SQLite ne gère pas les enums Prisma : les états sont des chaînes typées
+//   côté TypeScript (lib/domaine/types.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Activités, comptes, sessions (ACC-01, ACC-02, SEC-01)
+// ---------------------------------------------------------------------------
+
+model Activite {
+  id            String         @id // "maya" | "amari" | "pm"
+  nom           String
+  description   String?
+  ordre         Int            @default(0)
+  habilitations Habilitation[]
+  references    Reference[]
+  formats       Format[]
+  ventes        Vente[]
+  zones         Zone[]
+  depenses      Depense[]
+  postes        Poste[]
+  participants  Participant[]
+  coutsFixes    CoutFixe[]
+  tresorerie    MouvementTresorerie[]
+  boutiques     Boutique[]
+  imports       ImportLot[]
+}
+
+model Utilisateur {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  nom            String
+  motDePasseHash String
+  role           String // "ADMIN" | "VENDEUR"
+  // Administrateur désigné : comptes, réglages et liaisons (ACC-02).
+  gestionnaire   Boolean        @default(false)
+  // Le vendeur peut modifier le prix unitaire à la saisie (D05).
+  prixModifiable Boolean        @default(false)
+  actif          Boolean        @default(true)
+  desactiveLe    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  habilitations  Habilitation[]
+  sessions       Session[]
+  ventesVendues  Vente[]        @relation("VenteVendeur")
+  ventesSaisies  Vente[]        @relation("VenteAuteur")
+}
+
+model Habilitation {
+  id            String      @id @default(cuid())
+  utilisateurId String
+  activiteId    String
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  activite      Activite    @relation(fields: [activiteId], references: [id])
+
+  @@unique([utilisateurId, activiteId])
+}
+
+model Session {
+  id            String      @id @default(cuid())
+  // Empreinte SHA-256 du jeton : le jeton en clair ne vit que dans le cookie.
+  jetonHash     String      @unique
+  utilisateurId String
+  expireLe      DateTime
+  revoqueLe     DateTime?
+  createdAt     DateTime    @default(now())
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+
+  @@index([utilisateurId])
+}
+
+model TentativeConnexion {
+  id        String   @id @default(cuid())
+  email     String
+  reussie   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+}
+
+// Journal des changements sensibles et des opérations d'intégration (DAT-01).
+model JournalAudit {
+  id         String   @id @default(cuid())
+  activiteId String?
+  auteurId   String?
+  auteurNom  String?
+  action     String // "vente.creation", "depense.annulation", …
+  entite     String
+  entiteId   String?
+  resume     String
+  details    String? // JSON (avant / après), sans secret
+  motif      String?
+  createdAt  DateTime @default(now())
+
+  @@index([activiteId, createdAt])
+  @@index([entite, entiteId])
+}
+
+model Reglage {
+  cle    String @id
+  valeur String
+}
+
+model Compteur {
+  cle    String @id
+  valeur Int    @default(0)
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue et stock (STK-01, STK-02, STK-03)
+// ---------------------------------------------------------------------------
+
+model Reference {
+  id           String        @id @default(cuid())
+  activiteId   String
+  code         String
+  libelle      String
+  famille      String?
+  description  String?
+  etat         String        @default("ACTIF") // "ACTIF" | "ARCHIVE"
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  activite     Activite      @relation(fields: [activiteId], references: [id])
+  formats      Format[]
+  prixTouche   PrixTouche[]
+  prixLiquides PrixLiquide[]
+
+  @@unique([activiteId, code])
+}
+
+model Format {
+  id                     String          @id @default(cuid())
+  activiteId             String
+  referenceId            String
+  sku                    String
+  libelle                String // "50 ml"
+  contenanceMl           Int?
+  prixVenteCents         Int
+  quantite               Int             @default(0)
+  etat                   String          @default("ACTIF") // "ACTIF" | "ARCHIVE"
+  stockMajLe             DateTime        @default(now())
+  // Liaison Shopify (SHP-01)
+  shopifyVariantId       String?
+  shopifyInventoryItemId String?
+  lienStatut             String          @default("NON_LIE") // NON_LIE | LIE | AMBIGU | ERREUR
+  lienMessage            String?
+  dernierEchangeLe       DateTime?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  activite               Activite        @relation(fields: [activiteId], references: [id])
+  reference              Reference       @relation(fields: [referenceId], references: [id])
+  mouvements             MouvementStock[]
+  lignes                 LigneVente[]
+  prixTouche             PrixTouche[]
+  operations             OperationSync[]
+
+  @@unique([activiteId, sku])
+  @@index([referenceId])
+}
+
+model MouvementStock {
+  id          String   @id @default(cuid())
+  formatId    String
+  // ENTREE | SORTIE_VENTE | AJUSTEMENT | RETOUR | CORRECTION | IMPORT | SHOPIFY
+  type        String
+  quantite    Int // signée
+  stockApres  Int
+  origine     String // CRM | VENDEUR | IMPORT | SHOPIFY
+  auteurId    String?
+  auteurNom   String?
+  motif       String?
+  venteId     String?
+  // Clé d'unicité métier : une seule sortie par ligne de vente (STK-03),
+  // une seule application par notification Shopify.
+  cleUnique   String?  @unique
+  createdAt   DateTime @default(now())
+  format      Format   @relation(fields: [formatId], references: [id])
+
+  @@index([formatId, createdAt])
+  @@index([venteId])
+}
+
+// ---------------------------------------------------------------------------
+// Rentabilité : prix de touche (FIN-01) — coût d'achat à date d'effet
+// ---------------------------------------------------------------------------
+
+model PrixTouche {
+  id          String    @id @default(cuid())
+  referenceId String
+  formatId    String? // null = valeur au niveau de la référence
+  coutCents   Int
+  dateEffet   DateTime
+  auteurNom   String?
+  createdAt   DateTime  @default(now())
+  reference   Reference @relation(fields: [referenceId], references: [id], onDelete: Cascade)
+  format      Format?   @relation(fields: [formatId], references: [id], onDelete: Cascade)
+
+  @@index([referenceId])
+}
+
+// ---------------------------------------------------------------------------
+// Ventes Parfumerie Mobile (PM-02, PM-03, PM-04, VEN-01, VEN-02, GEO-02, LIV-03)
+// ---------------------------------------------------------------------------
+
+model Vente {
+  id                 String       @id @default(cuid())
+  activiteId         String
+  numero             String       @unique
+  // Identifiant de la tentative fourni par le client (VEN-02) : une relance
+  // réutilise la même clé et retrouve la vente déjà enregistrée.
+  cleIdempotence     String       @unique
+  client             String
+  commentaire        String?
+  dateVente          String // AAAA-MM-JJ, Europe/Paris
+  saisieLe           DateTime     @default(now())
+  vendeurId          String
+  auteurId           String
+  canal              String // TERRAIN | WHATSAPP | BOUTIQUE | AUTRE
+  statut             String       @default("CONFIRMEE") // CONFIRMEE | ANNULEE
+  corrigee           Boolean      @default(false)
+  zoneId             String?
+  zoneLibelle        String? // libellé historique
+  zoneProvenance     String       @default("NON_RENSEIGNEE") // PROPOSEE | SAISIE | NON_RENSEIGNEE
+  // Livraison : distincte de la zone de vente observée
+  livraisonEtat      String       @default("AUCUNE") // AUCUNE | PREFERENCE | CONFIRMEE | LIVREE
+  livraisonDate      String?
+  livraisonCreneau   String?
+  livraisonVille     String?
+  livraisonEffective String?
+  // Prix de touche au niveau de la commande (prioritaire si renseigné, FIN-01)
+  coutCommandeCents  Int?
+  // Photographie du calcul à la validation (FIN-02)
+  montantCents       Int
+  coutCents          Int?
+  coutSource         String // COMMANDE | LIGNES | A_COMPLETER
+  // Règlement (FIN-03)
+  regleeLe           String? // date de règlement AAAA-MM-JJ, null = non réglée
+  // Statut du stock lié, distinct du statut de la vente (PM-03)
+  stockSync          String       @default("NON_LIE") // NON_LIE | A_SYNCHRONISER | SYNCHRONISE | ERREUR
+  annuleeLe          DateTime?
+  motifAnnulation    String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  activite           Activite     @relation(fields: [activiteId], references: [id])
+  vendeur            Utilisateur  @relation("VenteVendeur", fields: [vendeurId], references: [id])
+  auteur             Utilisateur  @relation("VenteAuteur", fields: [auteurId], references: [id])
+  zone               Zone?        @relation(fields: [zoneId], references: [id])
+  lignes             LigneVente[]
+  corrections        CorrectionVente[]
+
+  @@index([activiteId, dateVente])
+  @@index([vendeurId])
+}
+
+model LigneVente {
+  id                String  @id @default(cuid())
+  venteId           String
+  formatId          String
+  // Libellés historiques : une référence renommée ou archivée garde ses ventes
+  referenceId       String
+  referenceCode     String
+  referenceLibelle  String
+  formatLibelle     String
+  quantite          Int
+  prixUnitaireCents Int
+  // null = coût absent (« coût à compléter »). 0 = coût connu à 0 €.
+  coutUnitaireCents Int?
+  coutSource        String // FORMAT | REFERENCE | MANUEL | ABSENT
+  vente             Vente   @relation(fields: [venteId], references: [id], onDelete: Cascade)
+  format            Format  @relation(fields: [formatId], references: [id])
+
+  @@index([formatId])
+}
+
+model CorrectionVente {
+  id          String   @id @default(cuid())
+  venteId     String
+  type        String // CORRECTION | ANNULATION | REGLEMENT | LIVRAISON
+  motif       String
+  avant       String // JSON
+  apres       String // JSON
+  effetStock  Boolean  @default(false)
+  auteurNom   String
+  createdAt   DateTime @default(now())
+  vente       Vente    @relation(fields: [venteId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Zones de vente et créneaux de livraison (GEO-01..03, LIV-01..03)
+// ---------------------------------------------------------------------------
+
+model Zone {
+  id         String    @id @default(cuid())
+  activiteId String
+  libelle    String
+  ville      String
+  lat        Float
+  lng        Float
+  rayonKm    Float     @default(3)
+  // Ouverte aux demandes de livraison WhatsApp
+  livraison  Boolean   @default(true)
+  active     Boolean   @default(true)
+  activite   Activite  @relation(fields: [activiteId], references: [id])
+  ventes     Vente[]
+  creneaux   Creneau[]
+  fermetures FermetureZone[]
+}
+
+model Creneau {
+  id         String  @id @default(cuid())
+  zoneId     String
+  jour       Int // 1 = lundi … 7 = dimanche
+  heureDebut String // "15:00"
+  heureFin   String // "17:00"
+  actif      Boolean @default(true)
+  zone       Zone    @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+}
+
+model FermetureZone {
+  id     String  @id @default(cuid())
+  zoneId String
+  date   String // AAAA-MM-JJ
+  motif  String?
+  zone   Zone    @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@unique([zoneId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Fonds de roulement / trésorerie opérationnelle (FIN-03)
+// ---------------------------------------------------------------------------
+
+model MouvementTresorerie {
+  id          String   @id @default(cuid())
+  activiteId  String
+  dateReglement String // AAAA-MM-JJ
+  // OUVERTURE | ENCAISSEMENT | DECAISSEMENT | AJUSTEMENT
+  type        String
+  // Toujours positif pour ENCAISSEMENT / DECAISSEMENT / OUVERTURE, signé pour AJUSTEMENT
+  montantCents Int
+  libelle     String
+  origine     String // VENTE | MANUEL | REMBOURSEMENT
+  // Un flux de vente n'est compté qu'une fois
+  venteId     String?  @unique
+  motif       String?
+  annule      Boolean  @default(false)
+  auteurNom   String?
+  createdAt   DateTime @default(now())
+  activite    Activite @relation(fields: [activiteId], references: [id])
+
+  @@index([activiteId, dateReglement])
+}
+
+// ---------------------------------------------------------------------------
+// Atelier Amari : dépenses, postes, coûts fixes, parts (AMA-01..04)
+// ---------------------------------------------------------------------------
+
+model Poste {
+  id         String     @id @default(cuid())
+  activiteId String
+  libelle    String
+  actif      Boolean    @default(true)
+  activite   Activite   @relation(fields: [activiteId], references: [id])
+  depenses   Depense[]
+  coutsFixes CoutFixe[]
+
+  @@unique([activiteId, libelle])
+}
+
+model Participant {
+  id         String        @id @default(cuid())
+  activiteId String
+  nom        String
+  // Clé de répartition par défaut, en points de base (6000 = 60 %)
+  partDefautBp Int?
+  actif      Boolean       @default(true)
+  activite   Activite      @relation(fields: [activiteId], references: [id])
+  parts      PartDepense[]
+
+  @@unique([activiteId, nom])
+}
+
+// Coût fixe paramétré : modèle de référence, jamais compté dans les totaux.
+model CoutFixe {
+  id          String    @id @default(cuid())
+  activiteId  String
+  libelle     String
+  posteId     String
+  montantCents Int
+  periodicite String // MENSUELLE | TRIMESTRIELLE | ANNUELLE
+  actif       Boolean   @default(true)
+  activite    Activite  @relation(fields: [activiteId], references: [id])
+  poste       Poste     @relation(fields: [posteId], references: [id])
+  depenses    Depense[]
+}
+
+model Depense {
+  id              String        @id @default(cuid())
+  activiteId      String
+  date            String // date de rattachement AAAA-MM-JJ
+  libelle         String
+  montantCents    Int
+  posteId         String
+  type            String // FIXE | PONCTUELLE
+  coutFixeId      String?
+  tiers           String?
+  note            String?
+  dateReglement   String?
+  statut          String        @default("ACTIVE") // ACTIVE | ANNULEE
+  annuleeLe       DateTime?
+  motifAnnulation String?
+  // Répartition : AUCUNE | POURCENTAGE | MONTANT, et clé appliquée figée (JSON)
+  modeRepartition String        @default("AUCUNE")
+  cleAppliquee    String?
+  auteurNom       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  activite        Activite      @relation(fields: [activiteId], references: [id])
+  poste           Poste         @relation(fields: [posteId], references: [id])
+  coutFixe        CoutFixe?     @relation(fields: [coutFixeId], references: [id])
+  parts           PartDepense[]
+
+  @@index([activiteId, date])
+}
+
+model PartDepense {
+  id              String      @id @default(cuid())
+  depenseId       String
+  participantId   String
+  participantNom  String
+  pourcentageBp   Int? // en mode POURCENTAGE
+  montantCents    Int
+  depense         Depense     @relation(fields: [depenseId], references: [id], onDelete: Cascade)
+  participant     Participant @relation(fields: [participantId], references: [id])
+
+  @@unique([depenseId, participantId])
+}
+
+// ---------------------------------------------------------------------------
+// Maison Maya : moteur de coût de revient repris de Maya OS
+// ---------------------------------------------------------------------------
+
+// Prix du liquide (€ HT / litre, en chaîne décimale exacte) d'un parfum.
+model PrixLiquide {
+  id          String    @id @default(cuid())
+  referenceId String
+  prixLitreHT String
+  dateEffet   DateTime
+  reference   Reference @relation(fields: [referenceId], references: [id], onDelete: Cascade)
+
+  @@unique([referenceId, dateEffet])
+}
+
+// Composant de conditionnement par contenance (flacon + boîte, étiquette…).
+model ComposantMaya {
+  id           String   @id @default(cuid())
+  libelle      String
+  contenanceMl Int
+  coutUnitHT   String
+  optionnel    Boolean  @default(false)
+  dateEffet    DateTime
+}
+
+// Façonnage (coût de série) par contenance.
+model FaconnageMaya {
+  id            String   @id @default(cuid())
+  contenanceMl  Int
+  coutFixeSerie String
+  coutVarUnitHT String
+  qteLotRef     Int
+  dateEffet     DateTime
+}
+
+model ParametreMaya {
+  id        String   @id @default(cuid())
+  cle       String // "taux_perte"
+  valeur    String
+  dateEffet DateTime
+
+  @@unique([cle, dateEffet])
+}
+
+// Import contrôlé (MAY-02)
+model ImportLot {
+  id          String   @id @default(cuid())
+  activiteId  String
+  nomFichier  String
+  statut      String // ESSAI | APPLIQUE
+  lignesOk    Int
+  lignesRejet Int
+  doublons    Int
+  releve      String // JSON : lignes rejetées avec motif
+  auteurNom   String?
+  createdAt   DateTime @default(now())
+  activite    Activite @relation(fields: [activiteId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Shopify (SHP-01..04)
+// ---------------------------------------------------------------------------
+
+model Boutique {
+  id              String   @id @default(cuid())
+  activiteId      String
+  nom             String
+  domaine         String? // xxx.myshopify.com
+  jetonChiffre    String? // AES-256-GCM, jamais réaffiché
+  emplacementId   String? // gid://shopify/Location/…
+  droitEcriture   Boolean  @default(false)
+  statut          String   @default("NON_CONFIGUREE") // NON_CONFIGUREE | ACTIVE | ERREUR
+  derniereSyncOk  DateTime?
+  derniereErreur  String?
+  updatedAt       DateTime @updatedAt
+  activite        Activite @relation(fields: [activiteId], references: [id])
+  operations      OperationSync[]
+}
+
+// File des ajustements de stock à envoyer à Shopify.
+model OperationSync {
+  id          String    @id @default(cuid())
+  boutiqueId  String?
+  formatId    String
+  venteId     String?
+  delta       Int
+  // Clé d'idempotence : un seul ajustement distant par sortie terrain (SHP-03)
+  cle         String    @unique
+  statut      String    @default("EN_ATTENTE") // EN_ATTENTE | OK | ERREUR | INCERTAIN
+  tentatives  Int       @default(0)
+  erreur      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  boutique    Boutique? @relation(fields: [boutiqueId], references: [id])
+  format      Format    @relation(fields: [formatId], references: [id])
+
+  @@index([statut])
+}
+
+// Notifications reçues, pour dédupliquer (SHP-03).
+model WebhookRecu {
+  id         String   @id @default(cuid())
+  webhookId  String   @unique
+  topic      String
+  domaine    String
+  statut     String // TRAITE | IGNORE | ERREUR
+  message    String?
+  recuLe     DateTime @default(now())
+}
