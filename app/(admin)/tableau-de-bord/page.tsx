@@ -1,10 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowUpRightIcon, FlaskConicalIcon, PlusIcon, ReceiptIcon, ShoppingBagIcon } from "lucide-react";
+import { ArrowUpRightIcon, FlaskConicalIcon, PlusIcon, ReceiptIcon, ShoppingBagIcon, TruckIcon } from "lucide-react";
 import { exigerAdmin } from "@/lib/auth/acces";
 import { prisma } from "@/lib/db";
 import { euros, pourcent } from "@/lib/argent";
-import { horodatage, resoudrePeriode } from "@/lib/dates";
+import { ajouterJours, aujourdhui, horodatage, jourMois, resoudrePeriode } from "@/lib/dates";
 import { ESPACES, estEspace, type EspaceId } from "@/lib/domaine";
 import { agregerVentes } from "@/lib/calcul/vente";
 import { filtreVentes } from "@/lib/requetes/pm";
@@ -19,6 +19,7 @@ import { CouleurEspace } from "@/components/palette-espace";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { WidgetStock, type ProduitStock } from "@/components/widget-stock";
 
 export const metadata: Metadata = { title: "Vue d'ensemble" };
 
@@ -68,6 +69,32 @@ export default async function VueEnsemble({ searchParams }: { searchParams: Prom
   });
   const syncKO = await prisma.operationSync.count({ where: { statut: { in: ["ERREUR", "INCERTAIN"] }, format: { activiteId: { in: filtre } } } });
   const sansSource = filtre.filter((e) => e !== "pm");
+  // Widget de stock : tous les projets autorisés, indépendamment du filtre d'activité.
+  const references = await prisma.reference.findMany({
+    where: { activiteId: { in: u.espaces }, etat: "ACTIF" },
+    include: { formats: { where: { etat: "ACTIF" }, orderBy: [{ contenanceMl: "asc" }, { libelle: "asc" }] } },
+    orderBy: [{ libelle: "asc" }],
+  });
+  const produits: ProduitStock[] = references
+    .filter((r) => r.formats.length > 0 && estEspace(r.activiteId))
+    .map((r) => ({
+      id: r.id,
+      espace: r.activiteId as EspaceId,
+      code: r.code,
+      libelle: r.libelle,
+      famille: r.famille,
+      variantes: r.formats.map((f) => ({ id: f.id, libelle: f.libelle, sku: f.sku, quantite: f.quantite, prixCents: f.prixVenteCents })),
+    }));
+  const auj = aujourdhui();
+  const livraisons = u.espaces.includes("pm")
+    ? await prisma.vente.findMany({
+        where: { activiteId: "pm", statut: "CONFIRMEE", livraisonEtat: { in: ["PREFERENCE", "CONFIRMEE"] }, livraisonDate: { gte: ajouterJours(auj, -14) } },
+        select: { id: true, client: true, livraisonDate: true, livraisonCreneau: true, livraisonVille: true, livraisonEtat: true },
+        orderBy: [{ livraisonDate: "asc" }, { livraisonCreneau: "asc" }],
+        take: 100,
+      })
+    : null;
+  const prochaine = livraisons?.find((l) => l.livraisonDate! >= auj);
   const action = u.espaces.includes("pm")
     ? { href: "/pm/ventes/nouvelle", libelle: "Nouvelle vente" }
     : u.espaces.includes("amari") ? { href: "/amari/depenses", libelle: "Voir les dépenses" }
@@ -118,8 +145,40 @@ export default async function VueEnsemble({ searchParams }: { searchParams: Prom
           definition="Références actives distinctes ; les formats d'une même référence ne gonflent pas le total."
         />
       </div>
+      <div className="crm-widgets">
+        {u.espaces.length > 0 && <WidgetStock espaces={u.espaces} produits={produits} />}
+        {livraisons && (
+          <Link href="/tournee" className="crm-widget crm-widget-livraison">
+            <header className="crm-widget-tete">
+              <span className="crm-widget-icone"><TruckIcon aria-hidden="true" /></span>
+              <div>
+                <h2>Livraisons</h2>
+                <p>Tournée et créneaux WhatsApp</p>
+              </div>
+              <span className="crm-widget-lien" aria-hidden="true"><ArrowUpRightIcon /></span>
+            </header>
+            <div className="crm-widget-chiffres">
+              <div><strong>{livraisons.filter((l) => l.livraisonDate === auj).length}</strong><small>aujourd’hui</small></div>
+              <div><strong>{livraisons.filter((l) => l.livraisonEtat === "PREFERENCE").length}</strong><small>à confirmer</small></div>
+              <div data-ton={livraisons.some((l) => l.livraisonDate! < auj) ? "alerte" : undefined}><strong>{livraisons.filter((l) => l.livraisonDate! < auj).length}</strong><small>en retard</small></div>
+            </div>
+            <div className="crm-widget-prochaine">
+              {prochaine ? (
+                <>
+                  <small>Prochaine livraison</small>
+                  <strong>{prochaine.client || "Client"}</strong>
+                  <span>{prochaine.livraisonDate === auj ? "Aujourd’hui" : jourMois(prochaine.livraisonDate!)} · {prochaine.livraisonCreneau ?? "journée"} · {prochaine.livraisonVille ?? "ville à préciser"}</span>
+                </>
+              ) : (
+                <><small>Prochaine livraison</small><strong>Aucune planifiée</strong></>
+              )}
+            </div>
+          </Link>
+        )}
+      </div>
+
       {sansSource.length > 0 && (
-        <p className="-mt-5 text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {pm ? `Total partiel : le chiffre d’affaires couvre la Parfumerie Mobile (terrain, WhatsApp et boutique saisis dans le CRM), montants ${reglages["vente.base_montants"]}.` : "Chiffre d’affaires indisponible pour cette sélection."}{" "}
           Aucune source de ventes validée pour {sansSource.map((e) => ESPACES[e].nom).join(" et ")} (décision D08 : import ou rapprochement des commandes Shopify).
         </p>

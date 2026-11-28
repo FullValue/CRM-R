@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  ArrowUpRightIcon, BarChart3Icon, BookOpenIcon, BoxesIcon, CalculatorIcon, ChevronDownIcon,
+  ArrowUpRightIcon, BarChart3Icon, BookOpenIcon, BoxesIcon, CalculatorIcon, CalendarClockIcon, ChevronDownIcon,
   CoinsIcon, FileClockIcon, FileUpIcon, LayoutDashboardIcon, LogOutIcon, MapIcon, MenuIcon,
   PaletteIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, ReceiptIcon, RefreshCwIcon,
   Settings2Icon, ShoppingBagIcon, TruckIcon, UsersIcon, WalletIcon, type LucideIcon,
@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PalettesContext, UtiliserPalette } from "@/components/palette-espace";
+import { BasculeLivraison } from "@/components/mobile/bascule-livraison";
+import { ROUTE_LIVRAISON, type ModeApp } from "@/lib/mode";
 import { ESPACES, estEspace, type EspaceId } from "@/lib/domaine";
 import { PALETTES, PALETTES_DEFAUT, cookiePalette, estPalette, type PalettesEspaces } from "@/lib/palettes";
 
@@ -94,21 +96,30 @@ const ONGLETS: Record<EspaceId, Onglet[]> = {
     { titre: "Stock", href: "/amari/stock", icone: BoxesIcon },
   ],
 };
+/** Mode livraison : la barre d'onglets ne garde que les gestes de la tournée. */
+const ONGLETS_LIVRAISON: Onglet[] = [
+  { titre: "Tournée", href: ROUTE_LIVRAISON, icone: TruckIcon },
+  { titre: "Créneaux", href: "/pm/livraisons", icone: CalendarClockIcon },
+  { titre: "Zones", href: "/pm/zones", icone: MapIcon },
+  { titre: "Ventes", href: "/pm/ventes", icone: ShoppingBagIcon },
+];
+const TITRES_ONGLETS: Record<EspaceId, string> = { maya: "Maya", amari: "Amari", pm: "Parfums" };
 const ICONES_ESPACES: Record<EspaceId, LucideIcon> = { maya: BookOpenIcon, amari: BarChart3Icon, pm: ShoppingBagIcon };
 
 function ongletsHorsEspace(espaces: EspaceId[]): Onglet[] {
   const onglets: Onglet[] = [{ ...VUE_ENSEMBLE, titre: "Accueil" }];
-  for (const e of espaces) onglets.push({ titre: ESPACES[e].court, href: ACCUEILS[e], icone: ICONES_ESPACES[e] });
+  for (const e of espaces) onglets.push({ titre: TITRES_ONGLETS[e], href: ACCUEILS[e], icone: ICONES_ESPACES[e] });
   if (espaces.includes("pm")) onglets.splice(Math.ceil(onglets.length / 2), 0, { titre: "Vendre", href: "/pm/ventes/nouvelle", icone: PlusIcon, principal: true });
   return onglets;
 }
 
-export function CadreCRM({ nom, email, espaces, gestionnaire, palettesInitiales, children }: {
+export function CadreCRM({ nom, email, espaces, gestionnaire, palettesInitiales, modeInitial, children }: {
   nom: string;
   email: string;
   espaces: EspaceId[];
   gestionnaire: boolean;
   palettesInitiales: PalettesEspaces;
+  modeInitial: ModeApp;
   children: React.ReactNode;
 }) {
   const chemin = usePathname();
@@ -117,14 +128,36 @@ export function CadreCRM({ nom, email, espaces, gestionnaire, palettesInitiales,
   const [palettes, setPalettes] = useState(palettesInitiales);
   const [replie, setReplie] = useState(false);
   const [menuMobile, setMenuMobile] = useState(false);
+  const livraisonPossible = espaces.includes("pm");
+  const [mode, setMode] = useState<ModeApp>(livraisonPossible ? modeInitial : "gestion");
+  const enLivraison = mode === "livraison";
+  const [defile, setDefile] = useState(false);
+  const [titrePage, setTitrePage] = useState("");
   const palette = espace ? palettes[espace] : PALETTES_DEFAUT.pm;
-  const groupes = espace ? MENUS[espace] : [];
-  const afficherAdmin = gestionnaire && (segment === "admin" || !espace);
-  const titre = espace ? ESPACES[espace].nom : segment === "admin" ? "Administration" : "Vue d’ensemble";
-  const onglets = espace ? ONGLETS[espace] : ongletsHorsEspace(espaces);
+  const groupes = espace ? MENUS[espace] : enLivraison ? MENUS.pm : [];
+  const afficherAdmin = gestionnaire && (segment === "admin" || (!espace && !enLivraison));
+  const titre = enLivraison ? "Livraison" : espace ? ESPACES[espace].nom : segment === "admin" ? "Administration" : "Vue d’ensemble";
+  const onglets = enLivraison ? ONGLETS_LIVRAISON : espace ? ONGLETS[espace] : ongletsHorsEspace(espaces);
   const routeActive = [VUE_ENSEMBLE, ...groupes.flatMap((g) => g.liens), ...ADMIN.liens, ...onglets]
     .filter((l) => chemin === l.href || chemin.startsWith(`${l.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
+  const indexActif = onglets.findIndex((o) => o.href === routeActive);
+
+  // Grand titre façon iOS : au défilement, il se replie dans la barre du haut.
+  useEffect(() => {
+    let image = 0;
+    function lire() {
+      image = 0;
+      const bas = window.scrollY > 52;
+      setDefile(bas);
+      if (bas) setTitrePage(document.querySelector("#contenu-crm h1")?.textContent?.trim() ?? "");
+    }
+    function auDefilement() { if (!image) image = requestAnimationFrame(lire); }
+    lire();
+    window.addEventListener("scroll", auDefilement, { passive: true });
+    return () => { window.removeEventListener("scroll", auDefilement); cancelAnimationFrame(image); };
+  }, [chemin]);
 
   function changerCouleur(valeur: string) {
     if (!espace || !estPalette(valeur)) return;
@@ -165,7 +198,7 @@ export function CadreCRM({ nom, email, espaces, gestionnaire, palettesInitiales,
   return (
     <PalettesContext.Provider value={palettes}>
       <UtiliserPalette palette={palette} />
-      <div className="crm-shell" data-palette={palette} data-replie={replie}>
+      <div className="crm-shell" data-palette={palette} data-replie={replie} data-mode={enLivraison ? "livraison" : undefined} data-defile={defile || undefined}>
         <a href="#contenu-crm" className="crm-skip">Aller au contenu</a>
         <aside className="crm-sidebar">
           <Link href={VUE_ENSEMBLE.href} className="crm-brand" aria-label="CRM centralisé" title="Vue d’ensemble">
@@ -184,9 +217,11 @@ export function CadreCRM({ nom, email, espaces, gestionnaire, palettesInitiales,
                 <SheetTrigger asChild>
                   <button type="button" className="crm-icon-button" aria-label="Ouvrir la navigation"><MenuIcon /></button>
                 </SheetTrigger>
-                <SheetContent side="left" className="crm-mobile-sheet" aria-describedby={undefined}>
-                  <SheetTitle className="crm-brand">CRM centralisé</SheetTitle>
-                  {navigation(() => setMenuMobile(false))}
+                <SheetContent side="bottom" className="crm-mobile-sheet" aria-describedby={undefined} showCloseButton={false}>
+                  <FeuilleGlissante onFermer={() => setMenuMobile(false)}>
+                    <SheetTitle className="crm-brand">{enLivraison ? "Mode livraison" : "CRM centralisé"}</SheetTitle>
+                    {navigation(() => setMenuMobile(false))}
+                  </FeuilleGlissante>
                 </SheetContent>
               </Sheet>
             </div>
@@ -214,7 +249,10 @@ export function CadreCRM({ nom, email, espaces, gestionnaire, palettesInitiales,
               </DropdownMenu>
             </div>
 
+            <span className="crm-topbar-titre" aria-hidden="true">{titrePage}</span>
+
             <div className="crm-topbar-actions">
+              {livraisonPossible && <BasculeLivraison mode={mode} onChange={setMode} />}
               {espace && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -261,7 +299,14 @@ export function CadreCRM({ nom, email, espaces, gestionnaire, palettesInitiales,
           </header>
           <main id="contenu-crm" className="crm-content" tabIndex={-1}>{children}</main>
         </div>
-        <nav className="crm-tabbar" aria-label="Raccourcis">
+        <nav
+          key={mode}
+          className="crm-tabbar"
+          aria-label="Raccourcis"
+          data-mode={enLivraison ? "livraison" : undefined}
+          style={{ "--n": onglets.length + 1, "--i": Math.max(indexActif, 0) } as React.CSSProperties}
+        >
+          <span className="crm-tabbar-repere" aria-hidden="true" data-visible={indexActif >= 0 || undefined} />
           {onglets.map((o) => (
             <Link key={o.href} href={o.href} data-principal={o.principal || undefined} aria-current={routeActive === o.href ? "page" : undefined}>
               <span className="crm-tabbar-icone"><o.icone aria-hidden="true" /></span>
@@ -275,5 +320,48 @@ export function CadreCRM({ nom, email, espaces, gestionnaire, palettesInitiales,
         </nav>
       </div>
     </PalettesContext.Provider>
+  );
+}
+
+/**
+ * Feuille du bas qu'on referme d'un glissement vers le bas, comme sur iOS.
+ * Le geste ne démarre que depuis la poignée ou quand la liste est en haut.
+ */
+function FeuilleGlissante({ onFermer, children }: { onFermer: () => void; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const depart = useRef<number | null>(null);
+  const [decalage, setDecalage] = useState(0);
+
+  function feuille() { return ref.current?.closest<HTMLElement>("[data-slot='sheet-content']") ?? null; }
+
+  function debut(e: React.TouchEvent) {
+    const f = feuille();
+    if (f && f.scrollTop > 0) return;
+    depart.current = e.touches[0].clientY;
+  }
+  function mouvement(e: React.TouchEvent) {
+    if (depart.current === null) return;
+    const d = e.touches[0].clientY - depart.current;
+    setDecalage(d > 0 ? d : 0);
+  }
+  function fin() {
+    if (depart.current === null) return;
+    depart.current = null;
+    if (decalage > 90) onFermer();
+    setDecalage(0);
+  }
+
+  useEffect(() => {
+    const f = feuille();
+    if (!f) return;
+    f.style.transform = decalage ? `translateY(${decalage}px)` : "";
+    f.style.transition = decalage ? "none" : "";
+  }, [decalage]);
+
+  return (
+    <div ref={ref} className="crm-feuille" onTouchStart={debut} onTouchMove={mouvement} onTouchEnd={fin} onTouchCancel={fin}>
+      <span className="crm-feuille-poignee" aria-hidden="true" />
+      {children}
+    </div>
   );
 }

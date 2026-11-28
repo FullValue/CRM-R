@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   title: { default: "CRM centralisé", template: "%s · CRM centralisé" },
   description: "Maison Maya · Atelier Amari · Parfumerie Mobile",
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, title: "CRM", statusBarStyle: "default" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#f5f5f7", viewportFit: "cover" };
