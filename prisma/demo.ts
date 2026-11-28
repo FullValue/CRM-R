@@ -100,8 +100,8 @@ export async function enrichirDemo() {
   }
 
   // 3. Quelques ruptures et stocks faibles, tracés comme des ajustements.
-  for (const [sku, cible] of [["PM-007-10", 0], ["PM-004-50", 2], ["PM-009-30", 3], ["MM-SUA-10", 0], ["AA-DIF-250ML", 3]] as const) {
-    const f = await prisma.format.findFirst({ where: { sku } });
+  for (const [code, cible] of [["PM-007", 0], ["PM-004", 2], ["PM-009", 3], ["MM-SUA", 0], ["AA-DIF", 3]] as const) {
+    const f = await prisma.format.findFirst({ where: { reference: { code } }, orderBy: { createdAt: "desc" } });
     if (!f || f.quantite === cible) continue;
     await prisma.format.update({ where: { id: f.id }, data: { quantite: cible, stockMajLe: new Date() } });
     await prisma.mouvementStock.create({ data: { formatId: f.id, type: "AJUSTEMENT", quantite: cible - f.quantite, stockApres: cible, origine: "CRM", auteurNom: "Démo", motif: "Inventaire du camion" } });
@@ -109,7 +109,8 @@ export async function enrichirDemo() {
 
   // 4. Ventes du jour et tournée des prochains jours.
   const vendeurs = (await Promise.all(["vendeur@crm.test", "vendeuse@crm.test"].map(utilisateur))).filter((u): u is UtilisateurCourant => !!u);
-  const admin = await utilisateur("parfumerie@crm.test") ?? await utilisateur("direction@crm.test");
+  const premierAdmin = await prisma.utilisateur.findFirst({ where: { actif: true, role: "ADMIN" }, orderBy: [{ gestionnaire: "desc" }, { createdAt: "asc" }] });
+  const admin = await utilisateur("parfumerie@crm.test") ?? await utilisateur("direction@crm.test") ?? (premierAdmin && await utilisateur(premierAdmin.email));
   const zones = await prisma.zone.findMany({ where: { activiteId: "pm", active: true } });
   if (vendeurs.length && admin && zones.length) {
     const plan = [

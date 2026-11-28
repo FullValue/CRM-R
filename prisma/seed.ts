@@ -4,18 +4,28 @@
  * reprennent les valeurs de référence de Maya OS ; les prix de vente, stocks,
  * ventes, dépenses et personnes sont inventés pour la recette.
  *
+ * Le catalogue Parfumerie Mobile reprend les références du fichier fournisseur
+ * prisma/donnees/vanora-parfums.csv (stocks et coûts fictifs).
+ *
  * Comptes de test : voir README.md (section « Comptes de démonstration »).
  * Usage : npm run db:reset   (efface la base locale puis rejoue ce fichier)
+ *
+ * Mode « production » (prisma/remplir-prod.ts) : la base contient déjà les
+ * activités, les boutiques et le compte administrateur réel. Aucun compte
+ * administrateur de démonstration n'est créé ; les vendeurs fictifs reçoivent
+ * un mot de passe aléatoire jamais communiqué (connexion impossible).
  */
-import { PrismaClient } from "@prisma/client";
+import { randomBytes } from "node:crypto";
+import { pathToFileURL } from "node:url";
 import { hacherMotDePasse } from "../lib/auth/motdepasse";
+import { chargerVanora } from "./catalogue-vanora";
 import { ajouterJours, aujourdhui } from "../lib/dates";
 import { enregistrerVente, annulerVente, corrigerVente } from "../lib/services/ventes";
 import { creerDepense, annulerDepense } from "../lib/services/depenses";
 import type { UtilisateurCourant } from "../lib/auth/acces";
 import { enrichirDemo } from "./demo";
 
-const prisma = new PrismaClient();
+import { prisma } from "../lib/db";
 
 export const COMPTES_DEMO = [
   { email: "direction@crm.test", nom: "Camille Direction", role: "ADMIN", gestionnaire: true, espaces: ["maya", "amari", "pm"], mdp: "demo-direction-2026" },
@@ -38,27 +48,39 @@ function choix<T>(t: readonly T[]): T {
 
 const D0 = new Date("2026-01-01T00:00:00.000Z");
 
-async function main() {
+export async function remplirDemo({ production = false }: { production?: boolean } = {}) {
   const auj = aujourdhui();
 
-  await prisma.activite.createMany({
-    data: [
-      { id: "maya", nom: "Maison Maya", description: "Reprise du CRM existant : références, formats, prix, stocks et coûts de revient.", ordre: 1 },
-      { id: "amari", nom: "Atelier Amari", description: "Catalogue, dépenses, coûts fixes, postes et parts.", ordre: 2 },
-      { id: "pm", nom: "Parfumerie Mobile", description: "Ventes terrain, rentabilité, fonds de roulement, zones et livraisons.", ordre: 3 },
-    ],
-  });
+  for (const a of [
+    { id: "maya", nom: "Maison Maya", description: "Reprise du CRM existant : références, formats, prix, stocks et coûts de revient.", ordre: 1 },
+    { id: "amari", nom: "Atelier Amari", description: "Catalogue, dépenses, coûts fixes, postes et parts.", ordre: 2 },
+    { id: "pm", nom: "Parfumerie Mobile", description: "Ventes terrain, rentabilité, fonds de roulement, zones et livraisons.", ordre: 3 },
+  ]) {
+    await prisma.activite.upsert({ where: { id: a.id }, create: a, update: { description: a.description } });
+  }
+
+  // En production, l'administrateur réel (le plus ancien gestionnaire) tient
+  // lieu de tous les comptes administrateur de démonstration.
+  const adminReel = production
+    ? await prisma.utilisateur.findFirst({ where: { actif: true, role: "ADMIN" }, orderBy: [{ gestionnaire: "desc" }, { createdAt: "asc" }] })
+    : null;
+  if (production && !adminReel) throw new Error("Aucun administrateur actif en base : créez-le avant de remplir la démonstration.");
 
   const users: Record<string, UtilisateurCourant> = {};
   for (const c of COMPTES_DEMO) {
-    const u = await prisma.utilisateur.create({
+    if (adminReel && c.role === "ADMIN") {
+      users[c.email] = { id: adminReel.id, nom: adminReel.nom, email: adminReel.email, role: "ADMIN", gestionnaire: adminReel.gestionnaire, prixModifiable: adminReel.prixModifiable, espaces: ["maya", "amari", "pm"] };
+      continue;
+    }
+    const existant = await prisma.utilisateur.findUnique({ where: { email: c.email } });
+    const u = existant ?? await prisma.utilisateur.create({
       data: {
         email: c.email,
         nom: c.nom,
         role: c.role,
         gestionnaire: c.gestionnaire,
         prixModifiable: "prixModifiable" in c ? c.prixModifiable : false,
-        motDePasseHash: await hacherMotDePasse(c.mdp),
+        motDePasseHash: await hacherMotDePasse(production ? randomBytes(24).toString("base64url") : c.mdp),
         habilitations: { create: c.espaces.map((a) => ({ activiteId: a })) },
       },
     });
@@ -66,16 +88,17 @@ async function main() {
   }
   const direction = users["direction@crm.test"];
 
-  await prisma.reglage.createMany({
-    data: [
-      { cle: "stock.politique", valeur: "BLOQUER" },
-      { cle: "vente.zone_obligatoire", valeur: "NON" },
-      { cle: "vente.base_montants", valeur: "TTC" },
-      { cle: "whatsapp.numero", valeur: "+33 6 00 00 00 00" },
-    ],
-  });
+  for (const [cle, valeur] of [
+    ["stock.politique", "BLOQUER"],
+    ["vente.zone_obligatoire", "NON"],
+    ["vente.base_montants", "TTC"],
+    ["whatsapp.numero", "+33 6 00 00 00 00"],
+  ]) {
+    await prisma.reglage.upsert({ where: { cle }, create: { cle, valeur }, update: {} });
+  }
 
   for (const a of ["maya", "amari", "pm"]) {
+    if (await prisma.boutique.findFirst({ where: { activiteId: a } })) continue;
     await prisma.boutique.create({ data: { activiteId: a, nom: a === "maya" ? "Boutique Maison Maya" : a === "amari" ? "Boutique Atelier Amari" : "Boutique Parfumerie Mobile" } });
   }
 
@@ -177,46 +200,33 @@ async function main() {
   await annulerDepense(ponctuelle.id, "Doublon de saisie (scénario R06)", amariAdmin);
 
   // ---------------------------------------------------------------- Parfumerie Mobile
-  const parfumsPM = [
-    ["PM-001", "Ambre Solaire", "Ambré"],
-    ["PM-002", "Cuir de Russie", "Cuiré"],
-    ["PM-003", "Fleur de Coton", "Floral"],
-    ["PM-004", "Oud Nocturne", "Oriental"],
-    ["PM-005", "Néroli Bleu", "Hespéridé"],
-    ["PM-006", "Vanille Noire", "Gourmand"],
-    ["PM-007", "Thé Matcha", "Vert"],
-    ["PM-008", "Bois Flotté", "Boisé"],
-    ["PM-009", "Rose Poudrée", "Floral"],
-    ["PM-010", "Figue Sauvage", "Fruité"],
-    ["PM-011", "Musc Blanc", "Musqué"],
-    ["PM-014", "Santal Royal", "Boisé"],
-  ] as const;
-  const declinaisons = [
-    ["10 ml", 10, 1500, 380],
-    ["30 ml", 30, 3200, 850],
-    ["50 ml", 50, 4500, 1300],
-  ] as const;
+  // Références réelles du fichier fournisseur ; stocks et coûts fictifs.
   const formatsPM: { id: string; prix: number }[] = [];
-  for (const [i, [code, libelle, famille]] of parfumsPM.entries()) {
-    const ref = await prisma.reference.create({ data: { activiteId: "pm", code, libelle, famille } });
+  for (const [i, p] of chargerVanora().entries()) {
+    const ref = await prisma.reference.create({ data: { activiteId: "pm", code: p.code, libelle: p.libelle, famille: p.marque, description: p.description } });
     // Prix de touche : par format pour la plupart ; PM-009 au niveau référence ; PM-010 et PM-011 sans coût (« coût à compléter »).
-    if (code === "PM-009") await prisma.prixTouche.create({ data: { referenceId: ref.id, coutCents: 900, dateEffet: D0, auteurNom: "Initialisation" } });
-    for (const [lib, ml, prix, cout] of declinaisons) {
-      const qte = 6 + Math.floor(alea() * 25);
+    if (p.code === "PM-009") await prisma.prixTouche.create({ data: { referenceId: ref.id, coutCents: Math.round(p.formats[0].prixVenteCents * 0.4), dateEffet: D0, auteurNom: "Initialisation" } });
+    for (const fv of p.formats) {
+      // Environ une référence sur douze en rupture, une sur huit en stock faible.
+      const r = alea();
+      const qte = r < 0.08 ? 0 : r < 0.2 ? 1 + Math.floor(alea() * 4) : 6 + Math.floor(alea() * 14);
       const f = await prisma.format.create({
-        data: { activiteId: "pm", referenceId: ref.id, sku: `${code}-${ml}`, libelle: lib, contenanceMl: ml, prixVenteCents: prix, quantite: 0 },
+        data: { activiteId: "pm", referenceId: ref.id, sku: `${p.code}-${fv.suffixe}`, libelle: fv.libelle, contenanceMl: fv.contenanceMl, prixVenteCents: fv.prixVenteCents, quantite: qte },
       });
-      await prisma.format.update({ where: { id: f.id }, data: { quantite: qte } });
-      await prisma.mouvementStock.create({ data: { formatId: f.id, type: "ENTREE", quantite: qte, stockApres: qte, origine: "CRM", auteurNom: "Initialisation", motif: "Stock initial du camion" } });
-      if (!["PM-009", "PM-010", "PM-011"].includes(code)) {
-        await prisma.prixTouche.create({ data: { referenceId: ref.id, formatId: f.id, coutCents: cout + (i % 3) * 50, dateEffet: D0, auteurNom: "Initialisation" } });
+      if (qte > 0) await prisma.mouvementStock.create({ data: { formatId: f.id, type: "ENTREE", quantite: qte, stockApres: qte, origine: "CRM", auteurNom: "Initialisation", motif: "Stock initial du camion" } });
+      if (!["PM-009", "PM-010", "PM-011"].includes(p.code)) {
+        // Coût d'achat fictif : 35 à 45 % du prix de vente.
+        await prisma.prixTouche.create({ data: { referenceId: ref.id, formatId: f.id, coutCents: Math.round(fv.prixVenteCents * (0.35 + (i % 3) * 0.05)), dateEffet: D0, auteurNom: "Initialisation" } });
       }
-      formatsPM.push({ id: f.id, prix });
+      formatsPM.push({ id: f.id, prix: fv.prixVenteCents });
     }
   }
   // Format lié à Shopify pour illustrer l'état du lien (SHP-01) et un SKU ambigu (R16).
-  await prisma.format.updateMany({ where: { sku: "PM-014-50" }, data: { lienStatut: "LIE", shopifyVariantId: "gid://shopify/ProductVariant/1000000014", shopifyInventoryItemId: "gid://shopify/InventoryItem/2000000014", dernierEchangeLe: new Date() } });
-  await prisma.format.updateMany({ where: { sku: "PM-001-30" }, data: { lienStatut: "AMBIGU", lienMessage: "2 variantes partagent ce SKU : choisir manuellement." } });
+  const premierFormat = (code: string) => prisma.format.findFirst({ where: { activiteId: "pm", reference: { code } }, orderBy: { createdAt: "asc" } });
+  const lie = await premierFormat("PM-014");
+  if (lie) await prisma.format.update({ where: { id: lie.id }, data: { lienStatut: "LIE", shopifyVariantId: "gid://shopify/ProductVariant/1000000014", shopifyInventoryItemId: "gid://shopify/InventoryItem/2000000014", dernierEchangeLe: new Date() } });
+  const ambigu = await premierFormat("PM-001");
+  if (ambigu) await prisma.format.update({ where: { id: ambigu.id }, data: { lienStatut: "AMBIGU", lienMessage: "2 variantes partagent ce SKU : choisir manuellement." } });
 
   const zonesDef = [
     ["Lyon Presqu'île", "Lyon", 45.7597, 4.8357, 1.5],
@@ -326,9 +336,11 @@ async function main() {
   await enrichirDemo();
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  remplirDemo()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}

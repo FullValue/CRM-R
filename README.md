@@ -92,6 +92,14 @@ migrations (`prisma migrate deploy`) avant de compiler : une nouvelle colonne
 existe donc toujours en base avant que le code qui la lit soit en ligne. Les
 déploiements d'aperçu ne migrent pas.
 
+Sur une production dont le catalogue Parfumerie Mobile est vide, ce même build
+installe une seule fois le jeu de démonstration (`prisma/remplir-prod.ts`) :
+les 286 références du fichier fournisseur `prisma/donnees/vanora-parfums.csv`
+et des données fictives (stocks, coûts, ventes, tournée, zones, trésorerie,
+Maya, Amari). Aucun compte administrateur de démonstration n'est créé ; les
+deux vendeurs fictifs ont un mot de passe aléatoire. `CRM_DEMO_PROD=0` désactive
+cette étape ; le repère `demo.prod` dans les réglages empêche toute réinstallation.
+
 La commande `npm run db:migrate:prod` applique les migrations versionnées de
 `prisma/postgresql/migrations` à la connexion PostgreSQL fournie dans
 l’environnement. L’initialisation crée les trois activités et les emplacements

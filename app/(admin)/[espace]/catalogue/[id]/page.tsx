@@ -64,7 +64,7 @@ export default async function FicheReference({ params }: { params: Promise<{ esp
             </>
           }
         />
-        {ref.description && <p className="text-sm text-muted-foreground max-w-3xl">{ref.description}</p>}
+        {ref.description && <p className="text-sm text-muted-foreground max-w-3xl whitespace-pre-line">{ref.description}</p>}
       </div>
 
       {ref.etat === "ARCHIVE" && (
