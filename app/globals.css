@@ -1390,3 +1390,49 @@ html[data-mode="livraison"] .crm-rond > span { background: var(--crm-carte); }
 
 /* La barre de validation flottante ne sert que sur petit écran : le récapitulatif la remplace au-delà. */
 @media (min-width: 1024px) { .crm-barre-action { display: none; } }
+
+/* ───────────── Responsive téléphone : rien ne doit élargir la page ─────────────
+   Une grille sans colonnes explicites (ou un enfant flex) prend par défaut la
+   largeur minimale de son contenu : un tableau large élargissait alors toute la
+   page et le téléphone dézoomait. Les enfants peuvent rétrécir, et ce sont les
+   tableaux qui défilent dans leur propre conteneur. */
+:is(.crm-content, .crm-vendeur) :is(.grid, .flex, [data-slot="card"], [data-slot="card-content"]) > * { min-width: 0; }
+:is(.crm-content, .crm-vendeur) [data-slot="table-container"] { max-width: 100%; overflow-x: auto; }
+html, body { overflow-x: clip; }
+
+/* Montants des indicateurs : la taille suit la largeur de la carte (deux
+   cartes par ligne sur téléphone), pour que « 12 345,00 € » tienne toujours. */
+.crm-kpi { container-type: inline-size; }
+@media (max-width: 790px) {
+  .crm-kpi-value:not([data-absente="true"]) { font-size: clamp(1.15rem, 16cqi, 2.1rem) !important; white-space: nowrap; }
+  .crm-page-heading h1 { font-size: clamp(1.85rem, 9.4vw, 2.4rem); }
+  /* Raccourcis ronds : un libellé long (« Parfumerie ») ne déborde plus. */
+  .crm-rond strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@media (max-width: 360px) {
+  .crm-kpi { padding: 12px; }
+  .crm-rond { width: 64px; }
+  .crm-rond > span { width: 56px; height: 56px; }
+}
+
+/* Tournée sur petit téléphone : l'état passe sous le nom pour laisser la
+   place au client et à l'adresse. */
+@media (max-width: 430px) {
+  .crm-arret-tete { grid-template-columns: 52px minmax(0, 1fr) auto; grid-template-areas: "heure corps chevron" "heure etat chevron"; row-gap: 6px; }
+  .crm-arret-heure { grid-area: heure; }
+  .crm-arret-corps { grid-area: corps; }
+  .crm-arret-tete .crm-arret-etat { grid-area: etat; justify-self: start; }
+  .crm-arret-chevron { grid-area: chevron; }
+}
+@media (max-width: 360px) {
+  .crm-widgets-ligne { gap: 8px; }
+  .crm-mini-widget { padding: 10px; }
+  .crm-mini-widget strong { font-size: 1.7rem; }
+}
+
+/* Bandeau du haut : les actions (livraison, compte) gardent leur taille, c'est
+   le titre qui se raccourcit. */
+@media (max-width: 790px) {
+  .crm-topbar-actions { flex-shrink: 0; }
+  .crm-topbar-titre { flex: 1 1 auto; min-width: 0; }
+}
