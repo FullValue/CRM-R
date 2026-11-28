@@ -21,6 +21,9 @@ export type ArretTournee = {
   effective: string | null;
   montantCents: number;
   reglee: boolean;
+  paiement: string | null;
+  depart: string | null;
+  arrivee: string | null;
   commentaire: string | null;
   articles: { id: string; libelle: string; quantite: number }[];
 };
@@ -126,7 +129,7 @@ export function Tournee({ arrets, aujourdhui, demain }: { arrets: ArretTournee[]
                         <span className="crm-arret-corps">
                           <strong>{a.client || "Client"}</strong>
                           <small>
-                            <MapPinIcon aria-hidden="true" /> {a.ville ?? "Ville à préciser"} · {a.articles.reduce((s, l) => s + l.quantite, 0)} article(s)
+                            <MapPinIcon aria-hidden="true" /> {a.arrivee ?? a.ville ?? "Ville à préciser"} · {a.articles.reduce((s, l) => s + l.quantite, 0)} article(s)
                           </small>
                         </span>
                         <span className="crm-arret-etat" data-etat={a.etat}>{a.etat === "PREFERENCE" ? "À confirmer" : a.etat === "CONFIRMEE" ? "Confirmée" : "Livrée"}</span>
@@ -140,8 +143,14 @@ export function Tournee({ arrets, aujourdhui, demain }: { arrets: ArretTournee[]
                                 <li key={l.id}><span>{l.quantite} ×</span> {l.libelle}</li>
                               ))}
                             </ul>
+                            {(a.depart || a.arrivee) && (
+                              <div className="crm-trajet crm-trajet-lecture">
+                                <div className="crm-trajet-etape" data-type="depart"><i aria-hidden="true" /><span><small>Départ</small><b>{a.depart ?? "—"}</b></span></div>
+                                <div className="crm-trajet-etape" data-type="arrivee"><MapPinIcon aria-hidden="true" /><span><small>Arrivée</small><b>{a.arrivee ?? "—"}</b></span></div>
+                              </div>
+                            )}
                             <div className="crm-arret-total">
-                              <span>{a.reglee ? "Réglée" : "À encaisser"}</span>
+                              <span>{a.reglee ? `Réglée${a.paiement ? ` · ${a.paiement}` : ""}` : `À encaisser${a.paiement ? ` · ${a.paiement}` : ""}`}</span>
                               <strong>{euros(a.montantCents)}</strong>
                             </div>
                             {a.commentaire && <p className="crm-arret-note">{a.commentaire}</p>}

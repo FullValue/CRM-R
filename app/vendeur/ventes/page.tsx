@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { EntetePage } from "@/components/entete-page";
 import { Indicateur } from "@/components/indicateur";
 import Link from "next/link";
-import { PlusIcon } from "lucide-react";
+import { ArrowRightIcon, MapPinIcon, PlusIcon } from "lucide-react";
+import { MOYENS_PAIEMENT, estMoyenPaiement } from "@/lib/domaine";
 
 export const metadata: Metadata = { title: "Mes ventes" };
 
@@ -71,6 +72,16 @@ export default async function MesVentes() {
                   <span>Total</span>
                   <span className="tabular-nums">{euros(v.montantCents)}</span>
                 </div>
+                {(v.moyenPaiement || v.lieuDepart || v.lieuArrivee) && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+                    {estMoyenPaiement(v.moyenPaiement) && <Badge variant="outline">{MOYENS_PAIEMENT[v.moyenPaiement]}</Badge>}
+                    {(v.lieuDepart || v.lieuArrivee) && (
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <MapPinIcon className="size-3 shrink-0" /> <span className="truncate">{v.lieuDepart ?? "—"}</span> <ArrowRightIcon className="size-3 shrink-0" /> <span className="truncate">{v.lieuArrivee ?? "—"}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">Saisie le {horodatage(v.saisieLe)}</p>
               </CardContent>
             </Card>

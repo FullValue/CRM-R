@@ -23,6 +23,18 @@ export const CANAUX = {
 } as const;
 export type Canal = keyof typeof CANAUX;
 
+export const MOYENS_PAIEMENT = {
+  ESPECES: "Espèces",
+  CARTE: "Carte bancaire",
+  VIREMENT: "Virement",
+  LYDIA: "Lydia / Wero",
+  CHEQUE: "Chèque",
+} as const;
+export type MoyenPaiement = keyof typeof MOYENS_PAIEMENT;
+export function estMoyenPaiement(x: string | null | undefined): x is MoyenPaiement {
+  return !!x && Object.hasOwn(MOYENS_PAIEMENT, x);
+}
+
 export const PROVENANCES_ZONE = {
   PROPOSEE: "Proposée (localisation)",
   SAISIE: "Choisie dans la liste",

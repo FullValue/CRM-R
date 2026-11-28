@@ -151,13 +151,24 @@ export function CadreCRM({ nom, email, espaces, gestionnaire, palettesInitiales,
       image = 0;
       const bas = window.scrollY > 52;
       setDefile(bas);
-      if (bas) setTitrePage(document.querySelector("#contenu-crm h1")?.textContent?.trim() ?? "");
+      if (bas) {
+        const court = document.querySelector("#contenu-crm [data-titre-court]")?.getAttribute("data-titre-court");
+        setTitrePage(court ?? document.querySelector("#contenu-crm h1")?.textContent?.trim() ?? "");
+      }
     }
     function auDefilement() { if (!image) image = requestAnimationFrame(lire); }
     lire();
     window.addEventListener("scroll", auDefilement, { passive: true });
     return () => { window.removeEventListener("scroll", auDefilement); cancelAnimationFrame(image); };
   }, [chemin]);
+
+  // Barre d'état du téléphone accordée au thème (sombre en mode livraison).
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (meta) meta.content = enLivraison ? "#0b0b0c" : "#f2f3f5";
+    document.documentElement.dataset.mode = enLivraison ? "livraison" : "gestion";
+    return () => { delete document.documentElement.dataset.mode; };
+  }, [enLivraison]);
 
   function changerCouleur(valeur: string) {
     if (!espace || !estPalette(valeur)) return;
@@ -308,12 +319,12 @@ export function CadreCRM({ nom, email, espaces, gestionnaire, palettesInitiales,
         >
           <span className="crm-tabbar-repere" aria-hidden="true" data-visible={indexActif >= 0 || undefined} />
           {onglets.map((o) => (
-            <Link key={o.href} href={o.href} data-principal={o.principal || undefined} aria-current={routeActive === o.href ? "page" : undefined}>
+            <Link key={o.href} href={o.href} aria-label={o.titre} data-principal={o.principal || undefined} aria-current={routeActive === o.href ? "page" : undefined}>
               <span className="crm-tabbar-icone"><o.icone aria-hidden="true" /></span>
               <span>{o.titre}</span>
             </Link>
           ))}
-          <button type="button" onClick={() => setMenuMobile(true)} aria-expanded={menuMobile}>
+          <button type="button" onClick={() => setMenuMobile(true)} aria-expanded={menuMobile} aria-label="Menu">
             <span className="crm-tabbar-icone"><MenuIcon aria-hidden="true" /></span>
             <span>Menu</span>
           </button>

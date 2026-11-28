@@ -99,7 +99,7 @@ export function WidgetStock({ espaces, produits }: { espaces: EspaceId[]; produi
           libelle="Projet"
           valeur={espace}
           onChange={(v) => { setEspace(v as EspaceId); setLimite(PAR_PAGE); setOuverts(new Set()); }}
-          options={espaces.map((e) => ({ valeur: e, libelle: ESPACES[e].court, palette: palettes[e] }))}
+          options={espaces.map((e) => ({ valeur: e, libelle: e === "pm" ? "Parfums" : ESPACES[e].court, palette: palettes[e] }))}
         />
       )}
 

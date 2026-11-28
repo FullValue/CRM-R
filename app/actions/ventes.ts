@@ -19,6 +19,9 @@ const schemaVente = z.object({
   lignes: z.array(z.object({ formatId: z.string(), quantite: z.number(), prixUnitaireCents: z.number().nullable() })).max(20),
   coutCommandeCents: z.number().nullable().optional(),
   regleeLe: z.string().nullable().optional(),
+  moyenPaiement: z.string().nullable().optional(),
+  lieuDepart: z.string().trim().max(160).nullable().optional(),
+  lieuArrivee: z.string().trim().max(160).nullable().optional(),
   livraison: z.object({ etat: z.string(), date: z.string().nullable().optional(), creneau: z.string().nullable().optional(), ville: z.string().nullable().optional() }).nullable().optional(),
 });
 

@@ -3,6 +3,7 @@ import { exigerEspaceAdmin } from "@/lib/auth/acces";
 import { prisma } from "@/lib/db";
 import { ajouterJours, aujourdhui, dateLongue } from "@/lib/dates";
 import { EntetePage } from "@/components/entete-page";
+import { MOYENS_PAIEMENT, estMoyenPaiement } from "@/lib/domaine";
 import { Tournee, type ArretTournee } from "@/components/mobile/tournee";
 
 export const metadata: Metadata = { title: "Tournée" };
@@ -40,6 +41,9 @@ export default async function PageTournee() {
     effective: v.livraisonEffective,
     montantCents: v.montantCents,
     reglee: Boolean(v.regleeLe),
+    paiement: estMoyenPaiement(v.moyenPaiement) ? MOYENS_PAIEMENT[v.moyenPaiement] : null,
+    depart: v.lieuDepart,
+    arrivee: v.lieuArrivee,
     commentaire: v.commentaire,
     articles: v.lignes.map((l) => ({ id: l.id, libelle: `${l.referenceLibelle} · ${l.formatLibelle}`, quantite: l.quantite })),
   }));

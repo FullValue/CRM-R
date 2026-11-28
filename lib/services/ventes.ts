@@ -4,6 +4,7 @@ import { lireReglages } from "@/lib/reglages";
 import { rentabiliteVente } from "@/lib/calcul/vente";
 import { valeurAuJour } from "@/lib/calcul/valeurAuJour";
 import { aujourdhui, estDateIso } from "@/lib/dates";
+import { estMoyenPaiement } from "@/lib/domaine";
 import type { UtilisateurCourant } from "@/lib/auth/acces";
 import { appliquerMouvement, planifierAjustementShopify } from "./stock";
 import { ErreurMetier } from "./resultat";
@@ -24,6 +25,9 @@ export type SaisieVente = {
   lignes: LigneSaisie[];
   coutCommandeCents?: number | null;
   regleeLe?: string | null;
+  moyenPaiement?: string | null;
+  lieuDepart?: string | null;
+  lieuArrivee?: string | null;
   livraison?: { etat: string; date?: string | null; creneau?: string | null; ville?: string | null } | null;
 };
 
@@ -66,6 +70,9 @@ function valider(s: SaisieVente, reglages: Awaited<ReturnType<typeof lireReglage
   if (s.coutCommandeCents !== undefined && s.coutCommandeCents !== null && (s.coutCommandeCents < 0 || !Number.isInteger(s.coutCommandeCents)))
     champs.coutCommande = "Prix de touche de commande invalide.";
   if (s.regleeLe && !estDateIso(s.regleeLe)) champs.regleeLe = "Date de règlement invalide.";
+  if (s.moyenPaiement && !estMoyenPaiement(s.moyenPaiement)) champs.moyenPaiement = "Moyen de paiement inconnu.";
+  if ((s.lieuDepart ?? "").length > 160) champs.lieuDepart = "160 caractères au maximum.";
+  if ((s.lieuArrivee ?? "").length > 160) champs.lieuArrivee = "160 caractères au maximum.";
   if (s.livraison?.date && !estDateIso(s.livraison.date)) champs.livraisonDate = "Date de livraison invalide.";
   if (Object.keys(champs).length > 0) throw new ErreurMetier("Certains champs sont à corriger.", champs);
 }
@@ -136,6 +143,9 @@ export async function enregistrerVente(s: SaisieVente, auteur: UtilisateurCouran
           coutCents: r.coutCents,
           coutSource: r.coutSource,
           regleeLe: s.regleeLe ?? null,
+          moyenPaiement: s.moyenPaiement || null,
+          lieuDepart: s.lieuDepart?.trim() || null,
+          lieuArrivee: s.lieuArrivee?.trim() || null,
           livraisonEtat: s.livraison?.etat ?? "AUCUNE",
           livraisonDate: s.livraison?.date ?? null,
           livraisonCreneau: s.livraison?.creneau ?? null,

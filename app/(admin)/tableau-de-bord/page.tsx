@@ -102,7 +102,40 @@ export default async function VueEnsemble({ searchParams }: { searchParams: Prom
 
   return (
     <div className="space-y-8">
+      <div className="crm-hero-app" data-titre-court="Accueil">
+        <p>Bonjour {u.nom.split(" ")[0]}</p>
+        <h1>Ravi de vous revoir.</h1>
+        <nav className="crm-ronds" aria-label="Accès rapides">
+          {u.espaces.includes("pm") && (
+            <Link href="/pm/ventes/nouvelle" className="crm-rond" data-ajout>
+              <span><PlusIcon aria-hidden="true" /></span>
+              <strong>Vendre</strong>
+              <small>Nouvelle</small>
+            </Link>
+          )}
+          {u.espaces.map((espace) => {
+            const { href, icone: Icone } = ESPACES_NAV[espace];
+            return (
+              <CouleurEspace key={espace} espace={espace} className="contents">
+                <Link href={href} className="crm-rond">
+                  <span><Icone aria-hidden="true" /></span>
+                  <strong>{ESPACES[espace].court}</strong>
+                  <small>{espace === "pm" ? "Ventes" : espace === "amari" ? "Finances" : "Catalogue"}</small>
+                </Link>
+              </CouleurEspace>
+            );
+          })}
+          {u.espaces.includes("pm") && (
+            <Link href="/tournee" className="crm-rond">
+              <span><TruckIcon aria-hidden="true" /></span>
+              <strong>Tournée</strong>
+              <small>Livraisons</small>
+            </Link>
+          )}
+        </nav>
+      </div>
       <EntetePage
+        className="crm-entete-bureau"
         titre="Vue d’ensemble"
         description={`Bonjour ${u.nom.split(" ")[0]}. Dates de référence : date de vente pour les ventes, date de rattachement pour les dépenses.`}
         actions={action && (

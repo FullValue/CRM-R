@@ -13,6 +13,7 @@ import { ajouterJours, aujourdhui } from "../lib/dates";
 import { enregistrerVente, annulerVente, corrigerVente } from "../lib/services/ventes";
 import { creerDepense, annulerDepense } from "../lib/services/depenses";
 import type { UtilisateurCourant } from "../lib/auth/acces";
+import { enrichirDemo } from "./demo";
 
 const prisma = new PrismaClient();
 
@@ -322,6 +323,7 @@ async function main() {
     }
   }
   console.log(`Seed terminé : ${ventes.length} ventes Parfumerie Mobile.`);
+  await enrichirDemo();
 }
 
 main()

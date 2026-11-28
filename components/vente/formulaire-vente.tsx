@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2Icon, LocateFixedIcon, MinusIcon, PlusIcon, RotateCwIcon, Trash2Icon, TriangleAlertIcon, WifiOffIcon } from "lucide-react";
+import { BanknoteIcon, CheckCircle2Icon, CreditCardIcon, FileTextIcon, LandmarkIcon, LocateFixedIcon, MapPinIcon, MinusIcon, PlusIcon, RotateCwIcon, SmartphoneIcon, Trash2Icon, TriangleAlertIcon, WifiOffIcon, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,9 +19,18 @@ import { declarerVente } from "@/app/actions/ventes";
 import type { DonneesFormulaireVente } from "@/lib/requetes/pm";
 import { centsVersSaisie, euros, saisieVersCents } from "@/lib/argent";
 import { suggererZone } from "@/lib/calcul/geo";
-import { CANAUX } from "@/lib/domaine";
+import { CANAUX, MOYENS_PAIEMENT, type MoyenPaiement } from "@/lib/domaine";
 import type { IssueVente } from "@/lib/services/ventes";
 import { SelecteurReference } from "@/components/vente/selecteur-reference";
+
+const ICONES_PAIEMENT: Record<MoyenPaiement, LucideIcon> = { ESPECES: BanknoteIcon, CARTE: CreditCardIcon, VIREMENT: LandmarkIcon, LYDIA: SmartphoneIcon, CHEQUE: FileTextIcon };
+const COURTS_PAIEMENT: Record<MoyenPaiement, string> = { ESPECES: "Espèces", CARTE: "Carte", VIREMENT: "Virement", LYDIA: "Lydia", CHEQUE: "Chèque" };
+const CLE_DEPART = "crm_dernier_depart";
+
+function lireDernierDepart() {
+  try { return localStorage.getItem(CLE_DEPART) ?? ""; } catch { return ""; }
+}
+const sansAbonnement = () => () => {};
 
 type Ligne = { cle: string; referenceId: string; formatId: string; quantite: string; prix: string };
 type Provenance = "PROPOSEE" | "SAISIE" | "NON_RENSEIGNEE";
@@ -62,6 +71,12 @@ export function FormulaireVente({
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [geoEtat, setGeoEtat] = useState<"inactif" | "recherche" | "refus" | "indisponible" | "imprecise" | "ok">("inactif");
   const [reglee, setReglee] = useState(true);
+  const [moyenPaiement, setMoyenPaiement] = useState<MoyenPaiement>("CARTE");
+  // Le point de départ change rarement d'une vente à l'autre : on reprend le dernier utilisé sur l'appareil.
+  const dernierDepart = useSyncExternalStore(sansAbonnement, lireDernierDepart, () => "");
+  const [departSaisi, setLieuDepart] = useState<string | null>(null);
+  const lieuDepart = departSaisi ?? dernierDepart;
+  const [lieuArrivee, setLieuArrivee] = useState("");
   const [vendeurId, setVendeurId] = useState("");
   const [canal, setCanal] = useState("TERRAIN");
   const [coutCommande, setCoutCommande] = useState("");
@@ -171,6 +186,9 @@ export function FormulaireVente({
       lignes: lignes.map((l) => ({ formatId: l.formatId, quantite: Number(l.quantite), prixUnitaireCents: peutModifierPrix && l.prix !== "" ? saisieVersCents(l.prix) : null })),
       coutCommandeCents: admin && coutCommande !== "" ? saisieVersCents(coutCommande) : null,
       regleeLe: reglee ? dateVente : null,
+      moyenPaiement,
+      lieuDepart: lieuDepart.trim() || null,
+      lieuArrivee: lieuArrivee.trim() || null,
       livraison: livraisonDate ? { etat: admin ? "CONFIRMEE" : "PREFERENCE", date: livraisonDate, creneau: livraisonCreneau || null, ville: livraisonVille || null } : null,
     };
     demarrer(async () => {
@@ -178,6 +196,7 @@ export function FormulaireVente({
         const r = await declarerVente(payload);
         setIncertain(false);
         if (r.ok && r.donnees) {
+          try { if (lieuDepart.trim()) localStorage.setItem(CLE_DEPART, lieuDepart.trim()); } catch {}
           setSucces(r.donnees);
           router.refresh();
         } else if (!r.ok) {
@@ -202,6 +221,7 @@ export function FormulaireVente({
     setLivraisonDate("");
     setLivraisonCreneau("");
     setLivraisonVille("");
+    setLieuArrivee("");
     setErreurs({});
     setMessage(null);
     setIncertain(false);
@@ -400,11 +420,51 @@ export function FormulaireVente({
             {erreurs.zone && <FieldError>{erreurs.zone}</FieldError>}
           </Field>
         </div>
-        <Field orientation="horizontal" className="min-h-12 rounded-xl bg-[var(--crm-fill)] px-3 py-2">
+        <Field data-invalid={!!erreurs.moyenPaiement || undefined}>
+          <FieldLabel>Moyen de paiement</FieldLabel>
+          <div className="crm-paiements" role="radiogroup" aria-label="Moyen de paiement">
+            {(Object.keys(MOYENS_PAIEMENT) as MoyenPaiement[]).map((m) => {
+              const Icone = ICONES_PAIEMENT[m];
+              return (
+                <button key={m} type="button" role="radio" aria-checked={moyenPaiement === m} aria-label={MOYENS_PAIEMENT[m]} className="crm-paiement" onClick={() => setMoyenPaiement(m)}>
+                  <span><Icone aria-hidden="true" /></span>
+                  {COURTS_PAIEMENT[m]}
+                </button>
+              );
+            })}
+          </div>
+          {erreurs.moyenPaiement && <FieldError>{erreurs.moyenPaiement}</FieldError>}
+        </Field>
+        <Field orientation="horizontal" className="min-h-12 rounded-2xl bg-[var(--crm-fill)] px-3 py-2">
           <Checkbox id="reglee" className="size-5" checked={reglee} onCheckedChange={(v) => setReglee(v === true)} />
           <FieldLabel htmlFor="reglee" className="flex-1 py-1 font-normal">
             Paiement reçu à la date de vente
           </FieldLabel>
+        </Field>
+
+        <Field>
+          <FieldLabel>Trajet</FieldLabel>
+          <div className="crm-trajet">
+            <label className="crm-trajet-etape" data-type="depart">
+              <i aria-hidden="true" />
+              <span>
+                <small>Départ</small>
+                <input value={lieuDepart} onChange={(e) => setLieuDepart(e.target.value)} placeholder="Dépôt, marché, adresse…" list="crm-lieux" maxLength={160} autoComplete="off" />
+              </span>
+            </label>
+            <label className="crm-trajet-etape" data-type="arrivee">
+              <MapPinIcon aria-hidden="true" />
+              <span>
+                <small>Arrivée</small>
+                <input value={lieuArrivee} onChange={(e) => setLieuArrivee(e.target.value)} placeholder="Adresse ou lieu de remise au client" list="crm-lieux" maxLength={160} autoComplete="off" />
+              </span>
+            </label>
+            <datalist id="crm-lieux">
+              <option value="Dépôt Lyon 7e" />
+              {donnees.zones.map((z) => <option key={z.id} value={z.libelle} />)}
+            </datalist>
+          </div>
+          <FieldDescription>Facultatif. Le départ est retenu sur ce téléphone pour la vente suivante.</FieldDescription>
         </Field>
         <Field>
           <FieldLabel htmlFor="commentaire">Commentaire (facultatif)</FieldLabel>
@@ -506,6 +566,16 @@ export function FormulaireVente({
             <span>Total</span>
             <span className="tabular-nums">{euros(total)}</span>
           </div>
+          <div className="flex justify-between gap-2 text-muted-foreground">
+            <span>Paiement</span>
+            <span>{MOYENS_PAIEMENT[moyenPaiement]}{reglee ? "" : " · à encaisser"}</span>
+          </div>
+          {(lieuDepart || lieuArrivee) && (
+            <div className="flex justify-between gap-2 text-muted-foreground">
+              <span>Trajet</span>
+              <span className="text-right">{lieuDepart || "—"} → {lieuArrivee || "—"}</span>
+            </div>
+          )}
           <div className="text-muted-foreground">
             {dateVente ? `Vente du ${dateVente.split("-").reverse().join("/")}` : ""} · {zoneId ? donnees.zones.find((z) => z.id === zoneId)?.libelle : "Zone non renseignée"}
           </div>

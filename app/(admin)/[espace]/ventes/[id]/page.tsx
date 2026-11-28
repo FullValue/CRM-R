@@ -6,7 +6,7 @@ import { exigerEspaceAdmin } from "@/lib/auth/acces";
 import { prisma } from "@/lib/db";
 import { euros, pourcent } from "@/lib/argent";
 import { aujourdhui, dateCourte, horodatage } from "@/lib/dates";
-import { CANAUX, ETATS_LIVRAISON, PROVENANCES_ZONE, SOURCES_COUT, STOCK_SYNC } from "@/lib/domaine";
+import { CANAUX, ETATS_LIVRAISON, MOYENS_PAIEMENT, estMoyenPaiement, PROVENANCES_ZONE, SOURCES_COUT, STOCK_SYNC } from "@/lib/domaine";
 import { rentabiliteVente } from "@/lib/calcul/vente";
 import { EntetePage, Section } from "@/components/entete-page";
 import { AnnulerVente, CorrigerVente, LivraisonVente, ReglerVente } from "@/components/vente/actions-vente";
@@ -97,6 +97,8 @@ export default async function DetailVente({ params }: { params: Promise<{ espace
               <Info label="Zone de vente">{v.zoneLibelle ?? "Zone non renseignée"}</Info>
               <Info label="Provenance de la zone">{PROVENANCES_ZONE[v.zoneProvenance as keyof typeof PROVENANCES_ZONE]}</Info>
               <Info label="Règlement">{v.regleeLe ? `Réglée le ${dateCourte(v.regleeLe)}` : "Non réglée"}</Info>
+              <Info label="Moyen de paiement">{estMoyenPaiement(v.moyenPaiement) ? MOYENS_PAIEMENT[v.moyenPaiement] : "Non renseigné"}</Info>
+              <Info label="Trajet">{v.lieuDepart || v.lieuArrivee ? `${v.lieuDepart ?? "—"} → ${v.lieuArrivee ?? "—"}` : "Non renseigné"}</Info>
               <Info label="Livraison">
                 {v.livraisonEtat === "AUCUNE"
                   ? "Aucune"

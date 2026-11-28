@@ -1108,3 +1108,186 @@ a.crm-widget:active { transform: scale(.985); }
   .crm-widgets-ligne { gap: 6px; }
   .crm-mini-widget strong { font-size: 1.6rem; }
 }
+
+/* ═════════════════════════ DA app v2 ═════════════════════════
+   Formes pleines et rondes : pilules, boutons circulaires, grandes cartes,
+   gros chiffres, barre d'onglets sombre. Le mode livraison passe en thème
+   sombre à accent menthe pour qu'on sache toujours où l'on est. */
+:root { --crm-noir: #121214; --crm-carte: #fff; }
+
+/* Choix du moyen de paiement et trajet : toutes tailles d'écran. */
+.crm-paiements { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.crm-paiement { display: grid; justify-items: center; gap: 6px; min-width: 0; padding: 10px 2px 9px; border-radius: 22px; background: var(--crm-carte); box-shadow: var(--crm-ombre); color: var(--foreground); font-size: .72rem; font-weight: 600; transition: background-color .25s var(--crm-ease), color .2s, transform .15s var(--crm-ease); -webkit-user-select: none; user-select: none; }
+.crm-paiement span { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--crm-fill); transition: background-color .25s var(--crm-ease), transform .4s var(--crm-ressort); }
+.crm-paiement svg { width: 19px; height: 19px; }
+.crm-paiement:active { transform: scale(.94); }
+.crm-paiement[aria-checked="true"] { background: var(--crm-noir); color: #fff; }
+.crm-paiement[aria-checked="true"] span { background: var(--crm-accent); color: #fff; transform: scale(1.06); }
+
+.crm-trajet { position: relative; display: grid; padding: 4px 0; border-radius: 24px; background: var(--crm-carte); box-shadow: var(--crm-ombre); }
+.crm-trajet::before { position: absolute; top: 33px; bottom: 33px; left: 27px; content: ""; border-left: 2px dotted color-mix(in srgb, var(--foreground) 28%, transparent); }
+.crm-trajet-etape { display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 58px; padding: 6px 16px; cursor: text; }
+.crm-trajet-etape + .crm-trajet-etape { box-shadow: inset 52px .5px 0 -52px var(--crm-hairline), inset 0 .5px 0 var(--crm-hairline); }
+.crm-trajet-etape > i { justify-self: center; width: 14px; height: 14px; border: 3.5px solid var(--crm-accent); border-radius: 50%; background: var(--crm-carte); }
+.crm-trajet-etape > svg { justify-self: center; width: 20px; height: 20px; color: var(--crm-accent); }
+.crm-trajet-etape > span { display: grid; min-width: 0; }
+.crm-trajet-etape small { color: var(--muted-foreground); font-size: .7rem; font-weight: 600; }
+.crm-trajet-etape input { width: 100%; min-width: 0; padding: 1px 0 0; border: 0; background: transparent; outline: none; font-size: .95rem; font-weight: 500; }
+.crm-trajet-etape b { overflow: hidden; font-size: .88rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.crm-trajet:focus-within { box-shadow: var(--crm-ombre), 0 0 0 2px color-mix(in srgb, var(--crm-accent) 40%, transparent); }
+.crm-trajet-lecture { background: var(--crm-fill); box-shadow: none; }
+.crm-trajet-lecture .crm-trajet-etape { min-height: 48px; cursor: default; }
+.crm-trajet-lecture::before { top: 28px; bottom: 28px; }
+
+/* Accueil « app » : visible sur téléphone seulement. */
+.crm-hero-app { display: none; }
+
+@media (max-width: 790px) {
+  .crm-entete-bureau { display: none; }
+  :root, [data-palette] { --background: #f2f3f5; }
+  body { background: var(--background); }
+
+  /* Barre du haut : pilules et ronds blancs posés sur le fond. */
+  .crm-topbar { min-height: 64px; padding-inline: 14px; }
+  .crm-topbar :is(.crm-space-trigger, .crm-compte, .crm-bascule) { background: var(--crm-carte); box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 0 0 .5px var(--crm-hairline); }
+  .crm-space-trigger { min-height: 46px !important; padding: 0 14px !important; gap: 8px; font-weight: 600; }
+  .crm-compte { width: 46px; height: 46px; min-height: 46px !important; padding: 0 !important; justify-content: center; border-radius: 50%; }
+  .crm-compte .crm-avatar { width: 38px; height: 38px; background: linear-gradient(160deg, color-mix(in srgb, var(--crm-accent) 80%, white), var(--crm-ink)); font-size: .8rem; }
+  .crm-bascule { height: 46px; padding: 0 5px 0 14px; }
+  .crm-bascule-piste { width: 44px; height: 30px; }
+  .crm-bascule-piste i { width: 26px; height: 26px; }
+  .crm-bascule[data-actif] .crm-bascule-piste i { transform: translateX(14px); }
+  .crm-bascule[data-actif] { background: var(--crm-noir); color: #fff; }
+
+  /* Accueil : salutation, grand titre et accès ronds. */
+  .crm-hero-app { display: grid; gap: 4px; padding-top: 6px; }
+  .crm-hero-app > p { color: var(--crm-accent); font-size: 1.08rem; font-weight: 600; letter-spacing: -.01em; }
+  .crm-hero-app > h1 { font: 600 2.55rem/1.02 var(--crm-display); letter-spacing: -.05em; }
+  .crm-hero-sous { margin-top: 6px; color: var(--muted-foreground); font-size: .92rem; }
+  .crm-ronds { display: flex; gap: 14px; margin: 18px -14px 0; padding: 4px 14px 6px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .crm-ronds::-webkit-scrollbar { display: none; }
+  .crm-rond { display: grid; flex: 0 0 auto; justify-items: center; gap: 2px; width: 70px; scroll-snap-align: start; text-align: center; transition: transform .15s var(--crm-ease); }
+  .crm-rond:active { transform: scale(.94); }
+  .crm-rond > span { display: grid; place-items: center; width: 64px; height: 64px; margin-bottom: 6px; border-radius: 50%; background: var(--crm-carte); box-shadow: var(--crm-ombre); color: var(--crm-accent); }
+  .crm-rond > span svg { width: 24px; height: 24px; }
+  .crm-rond[data-ajout] > span { background: transparent; box-shadow: none; border: 1.5px dashed color-mix(in srgb, var(--foreground) 25%, transparent); color: var(--foreground); }
+  .crm-rond strong { font-size: .82rem; font-weight: 600; }
+  .crm-rond small { max-width: 100%; overflow: hidden; color: var(--muted-foreground); font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Titres, cartes et chiffres plus généreux. */
+  .crm-page-heading h1 { font-size: 2.4rem; font-weight: 600; letter-spacing: -.05em; }
+  :is(.crm-content, .crm-vendeur) [data-slot="card"], .crm-kpi, .crm-activity, .crm-content [data-slot="empty"] { border-radius: 28px; }
+  .crm-kpi { min-height: 150px; padding: 18px; border-radius: 28px; }
+  .crm-kpi-value { font-size: clamp(1.6rem, 7.6vw, 2.1rem) !important; font-weight: 500 !important; letter-spacing: -.05em; }
+  .crm-kpi-arrow { width: 42px; height: 42px; border-radius: 50%; }
+  .crm-kpi[data-vedette="true"] { background: linear-gradient(165deg, color-mix(in srgb, var(--crm-accent) 92%, white) 0%, var(--crm-accent) 45%, var(--crm-ink) 120%); }
+  .crm-widget { padding: 20px; border-radius: 30px; gap: 16px; }
+  .crm-widget-icone { width: 48px; height: 48px; border-radius: 50%; }
+  .crm-widget-lien { width: 46px; height: 46px; }
+  .crm-widget-tete h2 { font-size: 1.3rem; font-weight: 600; letter-spacing: -.035em; }
+  .crm-widget-chiffres > div { border-radius: 20px; padding: 12px 14px; }
+  .crm-widget-chiffres strong { font-weight: 500; font-size: 2rem; letter-spacing: -.05em; }
+  .crm-widget-prochaine { border-radius: 22px; padding: 14px 16px; }
+  .crm-liste-app { border-radius: 28px; }
+  .crm-mini-widget { border-radius: 26px; padding: 14px; }
+  .crm-mini-widget strong { font-weight: 500; font-size: 2.3rem; letter-spacing: -.05em; }
+  .crm-vide-app { border-radius: 28px; }
+
+  /* Contrôles en pilules : curseur sombre, texte blanc. */
+  .crm-segmente { padding: 4px; border-radius: 999px; }
+  .crm-segmente-curseur { top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / var(--n)); border-radius: 999px; background: var(--crm-noir); box-shadow: 0 6px 14px -6px rgb(0 0 0 / 40%); }
+  .crm-segmente button { min-height: 44px; border-radius: 999px; font-size: .9rem; }
+  .crm-segmente button[aria-checked="true"] { color: #fff; }
+  .crm-segmente button[aria-checked="true"] i { box-shadow: 0 0 0 2px rgb(255 255 255 / 35%); }
+  .crm-filtres-stock button { min-height: 40px; padding: 0 15px; }
+  .crm-recherche-app { min-height: 50px; border-radius: 999px; padding-left: 16px; }
+
+  /* Boutons en pilules, champs plus hauts et plus ronds. */
+  :is(.crm-content, .crm-vendeur, .crm-auth) [data-slot="button"]:not([data-size^="icon"]) { min-height: 50px; border-radius: 999px; padding-inline: 20px; font-size: .96rem; }
+  :is(.crm-content, .crm-vendeur) :is([data-slot="input"], [data-slot="select-trigger"]) { min-height: 50px; border-radius: 16px; }
+  :is(.crm-content, .crm-vendeur) [data-slot="textarea"] { border-radius: 18px; }
+  .crm-action-app { min-height: 52px; border-radius: 999px; }
+
+  /* Barre de validation : capsule sombre au-dessus des onglets. */
+  .crm-barre-action { padding: 8px 8px 8px 22px; border-radius: 999px; background: rgb(18 18 20 / 92%); color: #fff; box-shadow: 0 16px 36px -14px rgb(0 0 0 / 50%); }
+  .crm-barre-action small { color: rgb(255 255 255 / 60%); }
+  .crm-barre-action strong { color: #fff; font-weight: 600; }
+  .crm-barre-action [data-slot="button"] { height: 52px !important; border-radius: 999px !important; padding-inline: 22px; background: var(--crm-accent); }
+
+  /* Barre d'onglets : capsule sombre, onglets ronds, rond blanc qui glisse. */
+  :root { --crm-tabbar-h: calc(86px + env(safe-area-inset-bottom)); }
+  .crm-tabbar { container-type: inline-size; height: 68px; padding: 8px; border-radius: 34px; background: rgb(18 18 20 / 94%); box-shadow: 0 18px 40px -14px rgb(0 0 0 / 55%), inset 0 0 0 .5px rgb(255 255 255 / 8%); backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6); }
+  .crm-tabbar :is(a, button) { height: 52px; color: rgb(255 255 255 / 72%); border-radius: 50%; }
+  .crm-tabbar :is(a, button) > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .crm-tabbar-icone, .crm-tabbar a[data-principal] .crm-tabbar-icone { width: 52px; height: 52px; margin: 0; border-radius: 50%; background: rgb(255 255 255 / 7%); box-shadow: none; transition: background-color .3s var(--crm-ease), color .3s, transform .3s var(--crm-ressort); }
+  .crm-tabbar svg, .crm-tabbar a[data-principal] svg { width: 21px; height: 21px; stroke-width: 1.8; color: inherit; }
+  .crm-tabbar a[aria-current="page"] { color: var(--crm-noir); }
+  .crm-tabbar a[aria-current="page"] .crm-tabbar-icone { background: transparent; }
+  .crm-tabbar a[aria-current="page"] svg { color: var(--crm-noir); stroke-width: 2.2; }
+  .crm-tabbar a[data-principal] { color: #fff; }
+  .crm-tabbar a[data-principal] .crm-tabbar-icone { background: var(--crm-accent); }
+  .crm-tabbar a[data-principal][aria-current="page"] .crm-tabbar-icone { background: transparent; transform: rotate(90deg); }
+  .crm-tabbar-repere { top: 8px; bottom: auto; left: calc(8px + ((100% - 16px) / var(--n) - 52px) / 2); width: 52px; height: 52px; border-radius: 50%; background: #fff; box-shadow: 0 6px 16px -4px rgb(0 0 0 / 45%); transform: translateX(calc((100cqw - 16px) / var(--n) * var(--i))); }
+  .crm-tabbar-vendeur { container-type: normal; left: 50%; right: auto; width: max-content; grid-auto-columns: 60px; gap: 4px; transform: translateX(-50%); }
+  .crm-tabbar-vendeur a[aria-current="page"] .crm-tabbar-icone { background: #fff; }
+  @keyframes crm-tabbar-entree { from { opacity: 0; translate: 0 26px; scale: .94; } }
+
+  /* Espace vendeur. */
+  .crm-vendeur-header { min-height: 64px; border-bottom-color: var(--crm-hairline); background: rgb(242 243 245 / 90%); backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8); }
+  .crm-vendeur-header .crm-compte { background: var(--crm-carte); box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 0 0 .5px var(--crm-hairline); }
+  .crm-vendeur main { padding-top: 10px; }
+
+  /* Feuille du menu et voile. */
+  .crm-mobile-sheet .crm-nav > .crm-nav-link, .crm-mobile-sheet .crm-nav-group { border-radius: 22px; }
+  .crm-voile[data-vers="livraison"] { background: radial-gradient(140% 100% at var(--x) var(--y), #1d3a2b, #0b0b0c 62%); }
+  .crm-voile[data-vers="livraison"] .crm-voile-icone { border-radius: 50%; background: #7ee2a8; color: #0b0b0c; box-shadow: 0 0 60px -6px rgb(126 226 168 / 60%); }
+  .crm-voile[data-vers="gestion"] { background: radial-gradient(140% 100% at var(--x) var(--y), #ffffff, #e9ebee 70%); color: var(--crm-noir); }
+  .crm-voile[data-vers="gestion"] .crm-voile-icone { border-radius: 50%; background: var(--crm-noir); color: #fff; box-shadow: none; }
+
+  /* ── Mode livraison : thème sombre, accent menthe ── */
+  html[data-mode="livraison"], html[data-mode="livraison"] [data-palette] {
+    --background: #0b0b0c; --foreground: #f5f5f7; --card: #1a1a1c; --crm-carte: #1a1a1c;
+    --muted: #1f1f22; --muted-foreground: #9a9aa2; --border: rgb(255 255 255 / 8%); --input: rgb(255 255 255 / 10%);
+    --secondary: rgb(255 255 255 / 8%); --secondary-foreground: #f5f5f7;
+    --crm-fill: rgb(255 255 255 / 8%); --crm-fill-fort: rgb(255 255 255 / 14%); --crm-hairline: rgb(255 255 255 / 9%);
+    --crm-ink: #d3f8e3; --crm-accent: #7ee2a8; --crm-bright: #7ee2a8; --crm-wash: rgb(126 226 168 / 14%);
+    --primary-foreground: #0b0b0c; --accent: rgb(126 226 168 / 14%); --accent-foreground: #d3f8e3;
+    --crm-ombre: 0 0 0 .5px rgb(255 255 255 / 6%); --popover: rgb(30 30 32 / 92%); --popover-foreground: #f5f5f7;
+    --crm-ok: #5fd68a; --crm-ok-fond: rgb(52 199 89 / 16%); --crm-faible: #ffb340; --crm-faible-fond: rgb(255 159 10 / 16%); --crm-rupture: #ff6961; --crm-rupture-fond: rgb(255 69 58 / 16%);
+    color-scheme: dark;
+  }
+  html[data-mode="livraison"] body, html[data-mode="livraison"] .crm-shell { background: var(--background); color: var(--foreground); }
+  html[data-mode="livraison"] :is(.crm-widget, .crm-liste-app, .crm-mini-widget, .crm-vide-app:not(.crm-vide-compact), .crm-kpi, .crm-activity, .crm-variantes, .crm-paiement, .crm-trajet:not(.crm-trajet-lecture)),
+  html[data-mode="livraison"] :is(.crm-content, .crm-vendeur) :is([data-slot="card"], [data-slot="empty"]) { background: var(--crm-carte); color: var(--foreground); }
+  html[data-mode="livraison"] :is(.crm-content) [data-slot="table-container"] { background: none; }
+  html[data-mode="livraison"] .crm-shell[data-defile] .crm-topbar { background: rgb(11 11 12 / 78%); }
+  html[data-mode="livraison"] .crm-topbar :is(.crm-space-trigger, .crm-compte, .crm-bascule) { background: var(--crm-carte); color: var(--foreground); box-shadow: 0 0 0 .5px rgb(255 255 255 / 8%); }
+  html[data-mode="livraison"] .crm-bascule[data-actif] { background: var(--crm-carte); color: var(--crm-accent); }
+  html[data-mode="livraison"] .crm-bascule[data-actif] .crm-bascule-piste { background: var(--crm-accent); }
+  html[data-mode="livraison"] .crm-tabbar { background: rgb(28 28 30 / 92%); box-shadow: 0 18px 40px -14px rgb(0 0 0 / 70%), inset 0 0 0 .5px rgb(255 255 255 / 10%); }
+  html[data-mode="livraison"] .crm-tabbar-repere { background: var(--crm-accent); box-shadow: 0 6px 20px -4px rgb(126 226 168 / 45%); }
+  html[data-mode="livraison"] .crm-tabbar a[aria-current="page"] svg { color: #0b0b0c; }
+  html[data-mode="livraison"] .crm-segmente-curseur { background: var(--crm-accent); }
+  html[data-mode="livraison"] .crm-segmente button[aria-checked="true"] { color: #0b0b0c; }
+  html[data-mode="livraison"] .crm-segmente button { color: var(--muted-foreground); }
+  html[data-mode="livraison"] .crm-mini-widget[data-ton="accent"] { background: var(--crm-accent); color: #0b0b0c; box-shadow: 0 18px 40px -20px rgb(126 226 168 / 60%); }
+  html[data-mode="livraison"] .crm-mini-widget[data-ton="accent"] :is(span, small) { color: rgb(11 11 12 / 65%); }
+  html[data-mode="livraison"] .crm-action-app { color: #0b0b0c; box-shadow: 0 10px 24px -12px rgb(126 226 168 / 70%); }
+  html[data-mode="livraison"] .crm-action-app[data-ton="doux"] { background: var(--crm-fill); color: var(--foreground); box-shadow: none; }
+  html[data-mode="livraison"] .crm-arret-note { background: rgb(255 214 10 / 12%); color: #ffe08a; }
+  html[data-mode="livraison"] .crm-arret-etat { background: var(--crm-wash); color: var(--crm-accent); }
+  html[data-mode="livraison"] .crm-groupe-arrets h2[data-ton="jour"] { color: var(--crm-accent); }
+  html[data-mode="livraison"] :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):focus-visible { background: #232326 !important; }
+  html[data-mode="livraison"] .crm-recherche-app:focus-within { background: #232326; }
+  html[data-mode="livraison"] .crm-content [data-slot="alert"] { background: rgb(255 214 10 / 10%) !important; color: var(--foreground); }
+  html[data-mode="livraison"] :is(.crm-content) [data-slot="badge"][data-variant="secondary"] { background: var(--crm-wash); color: var(--crm-accent); }
+  html[data-mode="livraison"] :is(.crm-content) [data-slot="badge"][data-variant="outline"] { color: var(--foreground); }
+  html[data-mode="livraison"] :is(.crm-content) [data-slot="table-row"]:hover { background: rgb(255 255 255 / 4%); }
+  html[data-mode="livraison"] [data-slot="sheet-content"] { background: rgb(22 22 24 / 94%); color: var(--foreground); }
+  html[data-mode="livraison"] .crm-mobile-sheet :is(.crm-nav > .crm-nav-link, .crm-nav-group) { background: var(--crm-carte); }
+  html[data-mode="livraison"] .crm-nav-link { color: var(--foreground); }
+  html[data-mode="livraison"] .crm-nav-link[aria-current="page"] { background: var(--crm-accent); color: #0b0b0c; }
+  html[data-mode="livraison"] .crm-nav-link[aria-current="page"] svg { color: #0b0b0c; }
+  html[data-mode="livraison"] .crm-feuille-poignee { background: rgb(255 255 255 / 25%); }
+  html[data-mode="livraison"] .crm-compte .crm-avatar { background: var(--crm-accent); color: #0b0b0c; }
+}

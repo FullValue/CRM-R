@@ -251,6 +251,10 @@ model Vente {
   coutSource         String // COMMANDE | LIGNES | A_COMPLETER
   // Règlement (FIN-03)
   regleeLe           String? // date de règlement AAAA-MM-JJ, null = non réglée
+  moyenPaiement      String? // ESPECES | CARTE | VIREMENT | LYDIA | CHEQUE
+  // Trajet de la vente (point de départ du vendeur, point de remise au client)
+  lieuDepart         String?
+  lieuArrivee        String?
   // Statut du stock lié, distinct du statut de la vente (PM-03)
   stockSync          String       @default("NON_LIE") // NON_LIE | A_SYNCHRONISER | SYNCHRONISE | ERREUR
   annuleeLe          DateTime?
