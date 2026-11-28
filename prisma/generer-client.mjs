@@ -10,4 +10,12 @@ if (postgresql) {
   args.push("--schema", "prisma/postgresql/schema.prisma");
 }
 
-execFileSync(process.execPath, [require.resolve("prisma/build/index.js"), ...args], { stdio: "inherit" });
+const prismaCli = require.resolve("prisma/build/index.js");
+execFileSync(process.execPath, [prismaCli, ...args], { stdio: "inherit" });
+
+// En production, les migrations versionnées sont appliquées avant le build :
+// le code déployé ne lit jamais une colonne que la base n'a pas encore.
+// Idempotent (déjà appliquées = rien à faire). Les aperçus ne migrent pas.
+if (postgresql && (process.env.VERCEL_ENV === "production" || process.env.CRM_MIGRER_AU_BUILD === "1")) {
+  execFileSync(process.execPath, [prismaCli, "migrate", "deploy", "--schema", "prisma/postgresql/schema.prisma"], { stdio: "inherit" });
+}

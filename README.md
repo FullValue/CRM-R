@@ -87,6 +87,11 @@ Le build Vercel génère le client Prisma PostgreSQL à partir du même schéma 
 le client SQLite local. Les variables de connexion du projet Vercel sont
 utilisées directement par le build et par l’application.
 
+Le build de production Vercel (`VERCEL_ENV=production`) applique lui-même ces
+migrations (`prisma migrate deploy`) avant de compiler : une nouvelle colonne
+existe donc toujours en base avant que le code qui la lit soit en ligne. Les
+déploiements d'aperçu ne migrent pas.
+
 La commande `npm run db:migrate:prod` applique les migrations versionnées de
 `prisma/postgresql/migrations` à la connexion PostgreSQL fournie dans
 l’environnement. L’initialisation crée les trois activités et les emplacements
